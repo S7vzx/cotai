@@ -1,0 +1,18 @@
+# Pendências
+
+O que ainda não foi verificado ou depende de algo externo.
+
+## Precisa de contas ou credenciais do cliente
+- **Resend:** o código de envio está pronto e com tipos checados, mas não foi testado contra a API real. Precisa de um domínio verificado.
+- **WhatsApp (Z-API, Evolution ou Meta):** os três adaptadores seguem a documentação pública de cada provedor, mas nenhum foi testado com um número real. Valide com o botão **Enviar teste** em Ajustes → Integrações.
+- **Pix automático (Asaas e Mercado Pago):** criação de cobrança e webhook implementados conforme a documentação, mas não testados em sandbox. No Asaas de produção, o cliente pode precisar informar CNPJ ou CPF; deixe o CNPJ como obrigatório em Regras de cotação se for o caso.
+
+## Não executado neste ambiente
+- **Supabase local completo** (`supabase start`): não havia Docker disponível. As migrações foram validadas num Postgres em memória (PGlite) com 35 testes de banco, mas vale rodar uma vez no Supabase real (Auth, Storage e Realtime de verdade).
+- **Edge Functions em execução:** os tipos foram checados com `deno check`, e a validação, os templates e o cálculo da taxa têm testes. A execução ponta a ponta das funções contra o Supabase real ainda não foi feita.
+- **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio.
+
+## Melhorias possíveis (fora do escopo pedido)
+- Notificar por e-mail o usuário mencionado em comentários (hoje a menção destaca o comentário para ele no painel)
+- Página do cliente com histórico de todas as cotações dele (portal do cliente)
+- Exportar a cotação em PDF no servidor (hoje é pelo "Imprimir / Salvar PDF" do navegador)

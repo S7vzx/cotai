@@ -1,0 +1,8 @@
+dist
+node_modules
+supabase/.temp
+brand
+public
+screenshots
+test-results
+*.md
