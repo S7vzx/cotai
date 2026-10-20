@@ -12,7 +12,6 @@ O que ainda não foi verificado ou depende de algo externo.
 - **Supabase local completo** (`supabase start`): não havia Docker disponível. As migrações foram validadas num Postgres em memória (PGlite) com 35 testes de banco, mas vale rodar uma vez no Supabase real (Auth, Storage e Realtime de verdade).
 - **Edge Functions em execução:** os tipos foram checados com `deno check`, e a validação, os templates e o cálculo da taxa têm testes. A execução ponta a ponta das funções contra o Supabase real ainda não foi feita.
 - **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio. Ele depende das migrações: rodá-lo sozinho no editor SQL dá `relation "public.categories" does not exist`.
-- **Categorias duplicadas:** `categories` não tem nome único, então o `on conflict do nothing` do seed não evita duplicatas se ele rodar duas vezes no mesmo banco. Corrigir com uma migração de índice único em `lower(name)` (e teste em `tests/db`).
 
 ## Melhorias possíveis (fora do escopo pedido)
 - Notificar por e-mail o usuário mencionado em comentários (hoje a menção destaca o comentário para ele no painel)

@@ -389,6 +389,16 @@ describe('auditoria', () => {
   })
 })
 
+describe('catálogos', () => {
+  it('não aceita duas categorias com o mesmo nome, ignorando maiúsculas e espaços', async () => {
+    await db.exec(`insert into public.categories (name) values ('Informática')`)
+    await expect(db.exec(`insert into public.categories (name) values (' informática ')`)).rejects.toThrow(/categories_name_key/)
+    await db.exec(`insert into public.categories (name) values ('INFORMÁTICA') on conflict do nothing`)
+    const c = await db.query('select name from public.categories')
+    expect(c.rows).toEqual([{ name: 'Informática' }])
+  })
+})
+
 describe('painel', () => {
   it('dashboard_stats esconde a receita de quem não tem permissão', async () => {
     await createRequest()

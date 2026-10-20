@@ -48,7 +48,11 @@ export default function AdminCategorias() {
   const [newUnit, setNewUnit] = React.useState({ code: '', label: '' })
   React.useEffect(() => setCList(cats.data ?? []), [cats.data])
   React.useEffect(() => setUList(units.data ?? []), [units.data])
-  const err = (e: unknown) => toast.error(/duplicate|unique/i.test(errorMessage(e)) ? 'Já existe um item com esse código' : errorMessage(e))
+  const err = (e: unknown) => {
+    const msg = errorMessage(e)
+    if (/categories_name_key/.test(msg)) return toast.error('Já existe uma categoria com esse nome')
+    toast.error(/duplicate|unique/i.test(msg) ? 'Já existe um item com esse código' : msg)
+  }
 
   return (
     <SectionShell
