@@ -8,9 +8,11 @@ O que ainda não foi verificado ou depende de algo externo.
 - **Pix automático (Asaas e Mercado Pago):** criação de cobrança e webhook implementados conforme a documentação, mas não testados em sandbox. No Asaas de produção, o cliente pode precisar informar CNPJ ou CPF; deixe o CNPJ como obrigatório em Regras de cotação se for o caso.
 
 ## Não executado neste ambiente
+- **Migrações no projeto Supabase de produção** (`Cotai`, ref `tuswxtkyicllszlxrmqt`): o projeto já está ligado (`supabase link`), mas o `db push` ainda não rodou. O host direto do banco só funciona por IPv6; numa rede só IPv4, use o pooler: `npx supabase db push --db-url "postgresql://postgres.tuswxtkyicllszlxrmqt:SENHA@aws-1-us-west-2.pooler.supabase.com:5432/postgres"`. Não rode o `seed.sql` lá: crie o primeiro usuário em Authentication → Add user (ele vira administrador).
 - **Supabase local completo** (`supabase start`): não havia Docker disponível. As migrações foram validadas num Postgres em memória (PGlite) com 35 testes de banco, mas vale rodar uma vez no Supabase real (Auth, Storage e Realtime de verdade).
 - **Edge Functions em execução:** os tipos foram checados com `deno check`, e a validação, os templates e o cálculo da taxa têm testes. A execução ponta a ponta das funções contra o Supabase real ainda não foi feita.
-- **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio.
+- **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio. Ele depende das migrações: rodá-lo sozinho no editor SQL dá `relation "public.categories" does not exist`.
+- **Categorias duplicadas:** `categories` não tem nome único, então o `on conflict do nothing` do seed não evita duplicatas se ele rodar duas vezes no mesmo banco. Corrigir com uma migração de índice único em `lower(name)` (e teste em `tests/db`).
 
 ## Melhorias possíveis (fora do escopo pedido)
 - Notificar por e-mail o usuário mencionado em comentários (hoje a menção destaca o comentário para ele no painel)
