@@ -16,7 +16,8 @@ O que ainda não foi verificado ou depende de algo externo.
 
 ## Portal do cliente (precisa configurar no Supabase)
 - Em **Authentication → Emails**, inclua o código `{{ .Token }}` nos modelos **Magic Link** e **Confirm signup** (o padrão só traz o link; os dois funcionam).
-- O e-mail padrão do Supabase só entrega para membros da organização e tem limite baixo por hora: configure SMTP próprio (Resend: `smtp.resend.com`, porta 465, usuário `resend`, senha = API key) antes de divulgar.
+- **SMTP de produção (20/10/2026):** provisório pelo Gmail (`smtp.gmail.com`, porta 465, senha de app); envio do código de login testado e entregue. Limite de ~500 e-mails/dia e remetente `@gmail.com`. Quando houver domínio próprio, troque pelo Resend (`smtp.resend.com`, porta 465, usuário `resend`, senha = API key).
+- **E-mail das cotações:** as Edge Functions enviam pela API do Resend, que exige domínio verificado. Até lá, a cotação chega só pelo WhatsApp e pelo link público. Faltam os secrets `RESEND_API_KEY`, `EMAIL_FROM` e `SITE_URL`.
 - Mantenha **Confirm email** ligado em Authentication → Providers → Email: o portal só mostra pedidos de e-mails confirmados.
 
 ## Melhorias possíveis (fora do escopo pedido)
