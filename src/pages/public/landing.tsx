@@ -2,12 +2,12 @@ import { Plus } from 'lucide-react'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/controls'
 import { usePublicSettings } from '@/features/settings/api'
 import { previewFee } from '@/lib/fee'
 import { money } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { HeroFlow } from './hero-flow'
+import { LANDING, LANDING_ETA, LANDING_FAQ } from './landing-content'
 import { PublicFooter, PublicHeader, useDocumentTitle } from './public-layout'
 
 function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -117,13 +117,14 @@ function Faq({ items }: { items: { id: string; question: string; answer: string 
 }
 
 export default function Landing() {
-  const { data, isLoading } = usePublicSettings()
+  // Os textos são fixos (landing-content.ts); do banco vem só a taxa, que aparece quando chegar
+  const { data } = usePublicSettings()
   useDocumentTitle(data?.seo_title ?? undefined)
 
   const fee = data ? previewFee(data.charge, 1) : 0
   const showFee = !!data?.charge.enabled && data.charge.show_on_landing && fee > 0
   const ctaLabel = (base: string) => (showFee ? `${base} — ${data?.charge.model === 'fixo_pedido' ? '' : 'a partir de '}${money(fee)}` : base)
-  const steps = (data?.landing.steps ?? []).filter((s) => s.active && (!s.payment || data?.charge.enabled))
+  const steps = LANDING.steps.filter((s) => s.active && (!s.payment || data?.charge.enabled))
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -133,28 +134,21 @@ export default function Landing() {
         {/* Hero */}
         <section className="overflow-hidden">
           <div className="mx-auto max-w-[1080px] px-4 pb-10 pt-14 text-center sm:px-6 sm:pt-24">
-            {isLoading ? (
-              <div className="mx-auto max-w-2xl space-y-4">
-                <Skeleton className="mx-auto h-14 w-4/5" />
-                <Skeleton className="mx-auto h-6 w-3/5" />
+            <div style={{ animation: 'rise 700ms cubic-bezier(0.25,0.1,0.25,1) both' }}>
+              <h1 className="mx-auto max-w-[820px] text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[64px]">
+                {LANDING.hero.title}
+              </h1>
+              <p className="mx-auto mt-5 max-w-[620px] text-[19px] leading-snug text-fg-2 sm:text-[21px]">{LANDING.hero.subtitle}</p>
+              <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+                <Button asChild size="lg">
+                  <Link to="/cotar">{ctaLabel(LANDING.hero.cta_primary)}</Link>
+                </Button>
+                <a href="#como-funciona" className="text-[19px] text-accent-text hover:underline underline-offset-4">
+                  {LANDING.hero.cta_secondary} ›
+                </a>
               </div>
-            ) : (
-              <div style={{ animation: 'rise 700ms cubic-bezier(0.25,0.1,0.25,1) both' }}>
-                <h1 className="mx-auto max-w-[820px] text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[64px]">
-                  {data?.landing.hero.title}
-                </h1>
-                <p className="mx-auto mt-5 max-w-[620px] text-[19px] leading-snug text-fg-2 sm:text-[21px]">{data?.landing.hero.subtitle}</p>
-                <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
-                  <Button asChild size="lg">
-                    <Link to="/cotar">{ctaLabel(data?.landing.hero.cta_primary ?? 'Solicitar cotação')}</Link>
-                  </Button>
-                  <a href="#como-funciona" className="text-[19px] text-accent-text hover:underline underline-offset-4">
-                    {data?.landing.hero.cta_secondary ?? 'Como funciona'} ›
-                  </a>
-                </div>
-                {data?.eta_text && <p className="mt-4 text-[13px] text-fg-3">Resposta {data.eta_text}</p>}
-              </div>
-            )}
+              <p className="mt-4 text-[13px] text-fg-3">Resposta {LANDING_ETA}</p>
+            </div>
           </div>
           <div className="mx-auto max-w-[1180px] px-4 pb-20 sm:px-6">
             <HeroFlow />
@@ -177,7 +171,7 @@ export default function Landing() {
                       <p className="mt-3 text-[19px] text-fg-2">{s.text}</p>
                     </div>
                     <div className="flex flex-1 justify-center">
-                      <StepVisual index={data?.landing.steps.indexOf(s) ?? i} />
+                      <StepVisual index={LANDING.steps.indexOf(s)} />
                     </div>
                   </Reveal>
                 </li>
@@ -193,7 +187,7 @@ export default function Landing() {
               <h2 className="max-w-[640px] text-[34px] font-semibold leading-tight sm:text-[48px]">Feito para quem compra para a empresa.</h2>
             </Reveal>
             <div className="mt-14 grid gap-x-16 sm:grid-cols-2">
-              {(data?.landing.benefits ?? []).map((b) => (
+              {LANDING.benefits.map((b) => (
                 <Reveal key={b.title} className="border-t border-line py-8">
                   <h3 className="text-[21px] font-semibold">{b.title}</h3>
                   <p className="mt-2 text-[17px] text-fg-2">{b.text}</p>
@@ -204,22 +198,20 @@ export default function Landing() {
         </section>
 
         {/* FAQ */}
-        {(data?.faq.length ?? 0) > 0 && (
-          <section id="perguntas" className="scroll-mt-14 bg-bg-alt py-24 sm:py-32">
-            <div className="mx-auto max-w-[760px] px-4 sm:px-6">
-              <h2 className="mb-10 text-[34px] font-semibold leading-tight sm:text-[48px]">Perguntas frequentes.</h2>
-              <Faq items={data!.faq} />
-            </div>
-          </section>
-        )}
+        <section id="perguntas" className="scroll-mt-14 bg-bg-alt py-24 sm:py-32">
+          <div className="mx-auto max-w-[760px] px-4 sm:px-6">
+            <h2 className="mb-10 text-[34px] font-semibold leading-tight sm:text-[48px]">Perguntas frequentes.</h2>
+            <Faq items={LANDING_FAQ} />
+          </div>
+        </section>
 
         {/* CTA final */}
         <section className="py-24 text-center sm:py-32">
           <div className="mx-auto max-w-[720px] px-4 sm:px-6">
-            <h2 className="text-[34px] font-semibold leading-tight sm:text-[48px]">{data?.landing.cta_final.title}</h2>
-            <p className="mt-4 text-[19px] text-fg-2">{data?.landing.cta_final.text}</p>
+            <h2 className="text-[34px] font-semibold leading-tight sm:text-[48px]">{LANDING.cta_final.title}</h2>
+            <p className="mt-4 text-[19px] text-fg-2">{LANDING.cta_final.text}</p>
             <Button asChild size="lg" className="mt-8">
-              <Link to="/cotar">{ctaLabel(data?.landing.cta_final.button ?? 'Solicitar cotação')}</Link>
+              <Link to="/cotar">{ctaLabel(LANDING.cta_final.button)}</Link>
             </Button>
           </div>
         </section>

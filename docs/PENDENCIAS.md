@@ -20,6 +20,9 @@ O que ainda não foi verificado ou depende de algo externo.
 - **E-mail das cotações:** as Edge Functions enviam pela API do Resend, que exige domínio verificado. Até lá, a cotação chega só pelo WhatsApp e pelo link público. Faltam os secrets `RESEND_API_KEY`, `EMAIL_FROM` e `SITE_URL`.
 - Mantenha **Confirm email** ligado em Authentication → Providers → Email: o portal só mostra pedidos de e-mails confirmados.
 
+## Decisões temporárias para desfazer
+- **Landing com textos fixos** (`src/pages/public/landing-content.ts`): para voltar a editar pelo painel sem a página esperar o banco, use os textos fixos como valor inicial e troque pelos do banco quando chegarem (sem skeleton).
+
 ## Melhorias possíveis (fora do escopo pedido)
 - Notificar por e-mail o usuário mencionado em comentários (hoje a menção destaca o comentário para ele no painel)
 - Exportar a cotação em PDF no servidor (hoje é pelo "Imprimir / Salvar PDF" do navegador)

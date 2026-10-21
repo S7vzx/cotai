@@ -20,7 +20,7 @@ async function shot(page: Page, name: string, fullPage = true) {
 }
 
 test.describe('site público', () => {
-  test('landing mostra textos e taxa vindos das configurações', async ({ page }) => {
+  test('landing mostra os textos fixos e a taxa vinda das configurações', async ({ page }) => {
     await mockSupabase(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mande a foto. A gente acha o preço.')

@@ -38,7 +38,7 @@ export default function AdminLanding() {
   return (
     <SectionShell
       title="Landing page"
-      description="Todos os textos do site. As mudanças aparecem na hora, sem publicar de novo."
+      description="Por enquanto, os textos e as perguntas da página inicial estão fixos no código, para o site abrir sem esperar o banco. As mudanças nesta tela só valem para o título e a descrição de SEO e a imagem de compartilhamento."
       loading={isLoading || !draft}
       error={error}
       onRetry={() => refetch()}
