@@ -189,14 +189,10 @@ function Chip({ x, y, w, label, value }: { x: number; y: number; w: number; labe
   )
 }
 
-/** Ícone do app no centro (cotai-app-icon.svg), com o anel pulsando. */
-function Hub({ x, y, caption = true }: { x: number; y: number; caption?: boolean }) {
+/** Ícone do app no centro (cotai-app-icon.svg). */
+function Hub({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <g style={{ animation: 'pulse-soft 3.2s ease-in-out infinite' }}>
-        <circle r="70" fill={ACCENT} fillOpacity="0.09" />
-      </g>
-      <circle r="54" fill={SURFACE} stroke={LINE} />
       <g transform="translate(-34 -34) scale(0.265625)">
         <rect width="256" height="256" rx="56" fill={DEVICE} />
         <g transform="translate(128 128) scale(0.68) translate(-128 -128)">
@@ -204,11 +200,6 @@ function Hub({ x, y, caption = true }: { x: number; y: number; caption?: boolean
           <path d={SYMBOL_ACCENT} fill={BRAND_GREEN_DARK} />
         </g>
       </g>
-      {caption && (
-        <text y="92" fontSize="12" fontWeight="500" fill={FG2} textAnchor="middle">
-          comparando 3 fornecedores
-        </text>
-      )}
     </g>
   )
 }
@@ -308,11 +299,11 @@ export function HeroFlow() {
       <svg viewBox="0 0 1180 400" className="hidden w-full sm:block">
         <Flow d="M212 150 C 256 150, 252 126, 296 126" delay={250} />
         <Flow d="M212 250 C 256 250, 252 286, 296 286" delay={300} />
-        <Flow d="M544 126 C 566 126, 552 196, 576 196" delay={450} />
-        <Flow d="M476 286 C 530 286, 540 196, 576 196" delay={500} />
-        <Flow d="M684 196 C 714 196, 714 100, 744 100" delay={700} />
-        <Flow d="M684 196 L 744 196" delay={750} />
-        <Flow d="M684 196 C 714 196, 714 292, 744 292" delay={800} />
+        <Flow d="M544 126 C 566 126, 572 196, 596 196" delay={450} />
+        <Flow d="M476 286 C 530 286, 560 196, 596 196" delay={500} />
+        <Flow d="M664 196 C 704 196, 704 100, 744 100" delay={700} />
+        <Flow d="M664 196 L 744 196" delay={750} />
+        <Flow d="M664 196 C 704 196, 704 292, 744 292" delay={800} />
         <Flow d="M944 292 L 966 292" delay={1100} />
 
         <g style={appear(0)}>
@@ -341,8 +332,8 @@ export function HeroFlow() {
       <svg viewBox="0 0 360 670" className="w-full sm:hidden">
         <Flow d="M145 92 C 158 92, 156 70, 168 70" delay={250} />
         <Flow d="M145 172 C 160 172, 160 181, 176 181" delay={300} />
-        <Flow d="M246 200 C 246 232, 180 226, 180 257" delay={450} />
-        <Flow d="M180 343 L 180 372" delay={700} />
+        <Flow d="M246 200 C 246 232, 180 240, 180 273" delay={450} />
+        <Flow d="M180 327 L 180 372" delay={700} />
         <Flow d="M180 548 L 180 576" delay={1100} />
 
         <g style={appear(0)}>
@@ -362,7 +353,7 @@ export function HeroFlow() {
         </g>
         <g style={appear(600)}>
           <g transform="translate(180 300) scale(0.8)">
-            <Hub x={0} y={0} caption={false} />
+            <Hub x={0} y={0} />
           </g>
         </g>
         {PRICES.map((p, i) => (
