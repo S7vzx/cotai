@@ -13,7 +13,11 @@ O que ainda não foi verificado ou depende de algo externo.
 - **Edge Functions em execução:** os tipos foram checados com `deno check`, e a validação, os templates e o cálculo da taxa têm testes. A execução ponta a ponta das funções contra o Supabase real ainda não foi feita.
 - **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio. Ele depende das migrações: rodá-lo sozinho no editor SQL dá `relation "public.categories" does not exist`.
 
+## Portal do cliente (precisa configurar no Supabase)
+- Em **Authentication → Email Templates → Magic Link**, inclua o código `{{ .Token }}` no texto (o padrão só traz o link; os dois funcionam).
+- O e-mail padrão do Supabase tem limite baixo por hora: configure SMTP próprio (Resend) em **Authentication → SMTP Settings** antes de divulgar.
+- Mantenha **Confirm email** ligado em Authentication → Providers → Email: o portal só mostra pedidos de e-mails confirmados.
+
 ## Melhorias possíveis (fora do escopo pedido)
 - Notificar por e-mail o usuário mencionado em comentários (hoje a menção destaca o comentário para ele no painel)
-- Página do cliente com histórico de todas as cotações dele (portal do cliente)
 - Exportar a cotação em PDF no servidor (hoje é pelo "Imprimir / Salvar PDF" do navegador)

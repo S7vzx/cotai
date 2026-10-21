@@ -16,3 +16,5 @@ Decisões tomadas onde a especificação deixava espaço, com o motivo.
 | 20/10/2026 | Componentes de UI próprios (Radix + Tailwind) em vez do CLI do shadcn | Controle total do visual Apple e sem dependência do registro do shadcn |
 | 20/10/2026 | oxlint em vez de ESLint | Já vem no template do Vite 8, é muito mais rápido e não precisa de configuração |
 | 20/10/2026 | Testes ponta a ponta com Supabase **simulado** | Rodam em qualquer máquina e no CI sem Docker; o banco real é coberto pelos testes de `tests/db` |
+| 20/10/2026 | Portal do cliente em `/login` → `/minhas-cotacoes`, com **código por e-mail** (Supabase Auth OTP); equipe entra por `/admin`, sem link no site; o painel continua em `/painel` | Pedido do cliente. Sem senha para o comprador lembrar; a lista usa o RPC `my_quote_requests()`, que só devolve pedidos do e-mail **confirmado** e só campos públicos |
+| 20/10/2026 | O perfil da equipe não nasce mais do `user_metadata`: só o primeiro usuário vira admin pelo gatilho; convidados ganham o perfil na Edge Function `invite-user` | Com o login do cliente o cadastro no Auth fica aberto, e o `user_metadata` é escolhido pelo próprio usuário |

@@ -17,14 +17,25 @@ Deno.serve(
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'E-mail inválido')
     if (!ROLES.includes(role)) throw new HttpError(400, 'Papel inválido')
 
+    const name = fullName || email.split('@')[0]
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { role, full_name: fullName || email.split('@')[0] },
-      redirectTo: `${SITE_URL}/nova-senha`,
+      data: { full_name: name },
+      redirectTo: `${SITE_URL}/admin/nova-senha`,
     })
+    let id = data?.user?.id
     if (error) {
-      if (/already/i.test(error.message)) throw new HttpError(400, 'Este e-mail já tem acesso')
-      throw error
+      if (!/already/i.test(error.message)) throw error
+      // O e-mail já tem usuário (ex.: entrou como cliente). Se ainda não é da equipe, vira agora.
+      const { data: existing } = await admin.rpc('auth_user_id_by_email', { p_email: email })
+      if (!existing) throw error
+      const { data: profile } = await admin.from('profiles').select('id').eq('id', existing).maybeSingle()
+      if (profile) throw new HttpError(400, 'Este e-mail já tem acesso')
+      id = existing as string
+      await admin.auth.resetPasswordForEmail(email, { redirectTo: `${SITE_URL}/admin/nova-senha` })
     }
-    return json({ id: data.user?.id })
+    // O perfil é criado aqui (service_role), nunca a partir do metadata do usuário
+    const { error: pErr } = await admin.from('profiles').upsert({ id, email, full_name: name, role })
+    if (pErr) throw pErr
+    return json({ id })
   }),
 )

@@ -34,7 +34,7 @@ export function PublicHeader({ links = true, cta = true }: { links?: boolean; ct
             <a href="/#como-funciona" className="hover:text-fg">Como funciona</a>
             <a href="/#vantagens" className="hover:text-fg">Vantagens</a>
             <a href="/#perguntas" className="hover:text-fg">Perguntas frequentes</a>
-            <Link to="/login" className="hover:text-fg">Área da equipe</Link>
+            <Link to="/minhas-cotacoes" className="hover:text-fg">Minhas cotações</Link>
           </nav>
         )}
         {cta && (
@@ -69,8 +69,8 @@ export function PublicFooter() {
               {data.contact_email}
             </a>
           )}
-          <Link to="/login" className="hover:text-fg md:hidden">
-            Área da equipe
+          <Link to="/minhas-cotacoes" className="hover:text-fg md:hidden">
+            Minhas cotações
           </Link>
           <p className="mt-2 text-fg-3">© {new Date().getFullYear()} {data?.display_name ?? 'Cotaí'}. Todos os direitos reservados.</p>
         </div>

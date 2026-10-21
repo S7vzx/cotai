@@ -23,13 +23,23 @@ export async function createDb() {
 
 export type Db = PGlite
 
-/** Cria um usuário em auth.users (dispara a criação do perfil). */
-export async function createUser(db: Db, email: string, role?: string) {
+/**
+ * Cria um usuário em auth.users. O primeiro vira admin pelo gatilho; com `role`,
+ * cria o perfil como a Edge Function invite-user faz.
+ */
+export async function createUser(db: Db, email: string, role?: string, meta: Record<string, unknown> = {}) {
   const res = await db.query<{ id: string }>(`insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id`, [
     email,
-    JSON.stringify(role ? { role, full_name: email } : { full_name: email }),
+    JSON.stringify({ full_name: email, ...meta }),
   ])
-  return res.rows[0].id
+  const id = res.rows[0].id
+  if (role)
+    await db.query(`insert into public.profiles (id, full_name, email, role) values ($1, $2, $2, $3) on conflict (id) do nothing`, [
+      id,
+      email,
+      role,
+    ])
+  return id
 }
 
 /** Executa como um papel do Supabase (anon, authenticated com um usuário, ou service_role). */

@@ -792,3 +792,33 @@ export const tracking = {
     { status: 'em_cotacao', at: iso(3) },
   ],
 }
+
+export const CUSTOMER_USER_ID = '00000000-0000-4000-8000-0000000c0001'
+
+export const myRequests = [
+  {
+    code: 'COT-000123',
+    token: 'tok123r',
+    status: 'enviado',
+    created_at: iso(48),
+    sent_at: iso(4),
+    valid_until: '2026-12-31',
+    quote_token: 'tok123',
+    payment_pending: false,
+    items: [
+      { name: 'Cadeira de escritório', quantity: 20, unit: 'un' },
+      { name: 'Mesa', quantity: 4, unit: 'un' },
+    ],
+  },
+  {
+    code: 'COT-000125',
+    token: 'tok125',
+    status: 'em_cotacao',
+    created_at: iso(5),
+    sent_at: null,
+    valid_until: null,
+    quote_token: null,
+    payment_pending: false,
+    items: [{ name: 'Papel A4', quantity: 50, unit: 'cx' }],
+  },
+]

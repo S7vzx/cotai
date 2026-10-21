@@ -32,7 +32,7 @@ export default function NovaSenha() {
   if (!session)
     return (
       <AuthShell title="Link expirado" subtitle="Peça um novo convite ao administrador ou use “Esqueci minha senha”.">
-        <Button className="w-full" onClick={() => navigate('/recuperar-senha')}>
+        <Button className="w-full" onClick={() => navigate('/admin/recuperar-senha')}>
           Recuperar senha
         </Button>
       </AuthShell>

@@ -14,7 +14,7 @@ export default function Login() {
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [error, setError] = React.useState<string | null>(
-    params.get('inativo') ? 'Seu acesso está desativado. Fale com o administrador.' : null,
+    params.get('sem-acesso') ? 'Esta conta não tem acesso à área da equipe. Fale com o administrador.' : null,
   )
   const [busy, setBusy] = React.useState(false)
   const from = (location.state as { from?: string } | null)?.from ?? '/painel'
@@ -59,7 +59,7 @@ export default function Login() {
           Entrar
         </Button>
         <p className="text-center">
-          <Link to="/recuperar-senha" className="text-[15px] text-accent-text">
+          <Link to="/admin/recuperar-senha" className="text-[15px] text-accent-text">
             Esqueci minha senha
           </Link>
         </p>

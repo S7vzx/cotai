@@ -55,7 +55,8 @@ npm run test:e2e          # Playwright com Supabase simulado
 npm run functions:check   # tipos das Edge Functions (Deno)
 ```
 
-- Login local: `admin@cotai.local` / `cotai12345`
+- Login local da equipe em `/admin`: `admin@cotai.local` / `cotai12345` (`/login` é o login do cliente, por código no e-mail)
+- Se a porta 5199 estiver ocupada, rode o Playwright com `E2E_PORT=5299`
 - Os testes de banco (`tests/db`) rodam as migrações num Postgres em memória (PGlite): não precisam de Docker. **Toda mudança de schema deve vir com teste ali.**
 - Os testes ponta a ponta usam `tests/e2e/mock-supabase.ts`. Ao criar uma tela ou consulta nova, adicione os dados em `tests/e2e/fixtures.ts`.
 - Se o Playwright não conseguir baixar o navegador, aponte `CHROMIUM_PATH` para um Chromium instalado.

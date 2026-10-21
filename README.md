@@ -51,7 +51,7 @@ Para as Edge Functions locais, crie `supabase/functions/.env` com os secrets que
    npx supabase db push            # aplica supabase/migrations (o seed.sql NÃO roda em produção)
    npx supabase functions deploy   # publica as 13 Edge Functions
    ```
-3. Em **Authentication → URL Configuration**, defina o **Site URL** (ex.: `https://cotai.com.br`) e adicione `https://cotai.com.br/nova-senha` às Redirect URLs.
+3. Em **Authentication → URL Configuration**, defina o **Site URL** (ex.: `https://cotai.com.br`) e adicione `https://cotai.com.br/admin/nova-senha` e `https://cotai.com.br/minhas-cotacoes` às Redirect URLs.
 4. Em **Authentication → Providers → Email**, desligue o cadastro público ("Allow new users to sign up"). A equipe entra por convite.
 5. Crie o primeiro usuário em **Authentication → Users → Add user**. **O primeiro usuário vira administrador automaticamente.**
 

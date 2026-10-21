@@ -81,6 +81,26 @@ export async function mockSupabase(page: Page, opts: { userId?: string; override
 
     // ---- Auth
     if (path.startsWith('/auth/v1/user')) return reply(route, { id: userId, email: fx.team.find((t) => t.id === userId)?.email })
+    if (path.startsWith('/auth/v1/verify')) {
+      const token = (body as { token?: string })?.token
+      if (token !== '123456') return reply(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
+      return reply(route, {
+        access_token: 'customer-access-token',
+        refresh_token: 'customer-refresh-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: {
+          id: fx.CUSTOMER_USER_ID,
+          email: (body as { email?: string }).email,
+          aud: 'authenticated',
+          role: 'authenticated',
+          app_metadata: {},
+          user_metadata: { kind: 'customer' },
+          created_at: new Date().toISOString(),
+        },
+      })
+    }
     if (path.startsWith('/auth/v1/')) return reply(route, {})
 
     // ---- Storage
@@ -168,6 +188,7 @@ export async function mockSupabase(page: Page, opts: { userId?: string; override
         quote_options_for_staff: fx.options,
         purchase_board: fx.purchases,
         mark_request_paid: {},
+        my_quote_requests: fx.myRequests,
         can: true,
       }
       return reply(route, rpc[fn] ?? null)

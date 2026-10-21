@@ -14,7 +14,7 @@ export default function Recuperar() {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${SITE_URL}/nova-senha` })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${SITE_URL}/admin/nova-senha` })
     setBusy(false)
     if (error) setError(error.message)
     else setSent(true)
@@ -36,7 +36,7 @@ export default function Recuperar() {
         </form>
       )}
       <p className="mt-6 text-center">
-        <Link to="/login" className="text-[15px] text-accent-text">
+        <Link to="/admin" className="text-[15px] text-accent-text">
           Voltar para o login
         </Link>
       </p>

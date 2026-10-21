@@ -389,6 +389,46 @@ describe('auditoria', () => {
   })
 })
 
+describe('portal do cliente', () => {
+  it('usuário criado pelo Auth não vira equipe, mesmo pedindo papel no metadata', async () => {
+    const intruso = await createUser(db, 'intruso@x.com', undefined, { role: 'admin' })
+    const cliente = await createUser(db, 'ana@loja.com', undefined, { kind: 'customer' })
+    const r = await db.query('select id from public.profiles where id in ($1, $2)', [intruso, cliente])
+    expect(r.rows).toEqual([])
+    await expect(
+      as(db, { role: 'authenticated', userId: cliente }, () => db.query('select id from public.quote_requests')),
+    ).resolves.toMatchObject({ rows: [] })
+  })
+
+  it('cliente vê só os próprios pedidos, sem campos internos', async () => {
+    const r = await createRequest()
+    await createRequest({ customer: { name: 'Bia', company: 'Outra', whatsapp: '+5579999990002', email: 'bia@outra.com' } })
+    const cliente = await createUser(db, 'ANA@loja.com', undefined, { kind: 'customer' })
+    const mine = await as(db, { role: 'authenticated', userId: cliente }, () =>
+      db.query<{ r: { code: string; token: string; quote_token: string | null; items: unknown[] }[] }>(
+        'select public.my_quote_requests() as r',
+      ),
+    )
+    const list = mine.rows[0].r
+    expect(list.map((x) => x.code)).toEqual([r.code])
+    expect(list[0].token).toBe(r.public_token)
+    expect(list[0].quote_token).toBeNull()
+    expect(list[0].items).toHaveLength(2)
+    expect(JSON.stringify(list)).not.toMatch(/cost_price|internal_notes|supplier/)
+  })
+
+  it('e-mail não confirmado não vê nada, e anon não executa', async () => {
+    await createRequest()
+    const cliente = await createUser(db, 'ana@loja.com', undefined, { kind: 'customer' })
+    await db.query('update auth.users set email_confirmed_at = null where id = $1', [cliente])
+    const mine = await as(db, { role: 'authenticated', userId: cliente }, () =>
+      db.query<{ r: unknown[] }>('select public.my_quote_requests() as r'),
+    )
+    expect(mine.rows[0].r).toEqual([])
+    await expect(as(db, { role: 'anon' }, () => db.query('select public.my_quote_requests()'))).rejects.toThrow(/permission denied/)
+  })
+})
+
 describe('catálogos', () => {
   it('não aceita duas categorias com o mesmo nome, ignorando maiúsculas e espaços', async () => {
     await db.exec(`insert into public.categories (name) values ('Informática')`)

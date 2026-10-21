@@ -9,6 +9,8 @@ const Cotar = lazy(() => import('@/pages/public/cotar'))
 const Pedido = lazy(() => import('@/pages/public/pedido'))
 const Cotacao = lazy(() => import('@/pages/public/cotacao'))
 const Login = lazy(() => import('@/pages/auth/login'))
+const Entrar = lazy(() => import('@/pages/public/entrar'))
+const MinhasCotacoes = lazy(() => import('@/pages/public/minhas-cotacoes'))
 const Recuperar = lazy(() => import('@/pages/auth/recuperar'))
 const NovaSenha = lazy(() => import('@/pages/auth/nova-senha'))
 
@@ -54,8 +56,8 @@ function RequireStaff() {
   const { session, profile, loading } = useAuth()
   const location = useLocation()
   if (loading) return <PageLoader />
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
-  if (!profile) return <Navigate to="/login?inativo=1" replace />
+  if (!session) return <Navigate to="/admin" replace state={{ from: location.pathname }} />
+  if (!profile) return <Navigate to="/admin?sem-acesso=1" replace />
   return <Outlet />
 }
 
@@ -74,9 +76,12 @@ export const router = createBrowserRouter([
       { path: '/cotar', element: <Cotar /> },
       { path: '/pedido/:codigo', element: <Pedido /> },
       { path: '/cotacao/:token', element: <Cotacao /> },
-      { path: '/login', element: <Login /> },
-      { path: '/recuperar-senha', element: <Recuperar /> },
-      { path: '/nova-senha', element: <NovaSenha /> },
+      { path: '/login', element: <Entrar /> },
+      { path: '/minhas-cotacoes', element: <MinhasCotacoes /> },
+      // Equipe: sem link no site, acesso digitando /admin
+      { path: '/admin', element: <Login /> },
+      { path: '/admin/recuperar-senha', element: <Recuperar /> },
+      { path: '/admin/nova-senha', element: <NovaSenha /> },
       {
         element: <RequireStaff />,
         children: [

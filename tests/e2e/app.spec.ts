@@ -96,6 +96,38 @@ test.describe('site público', () => {
     await shot(page, 'pedido')
   })
 
+  test('cliente entra com código e vê as próprias cotações', async ({ page }) => {
+    const calls = await mockSupabase(page)
+    await page.goto('/')
+    await expect(page.getByText('Área da equipe')).toHaveCount(0)
+    await page.goto('/minhas-cotacoes')
+    await expect(page).toHaveURL(/\/login$/)
+    await page.getByLabel('E-mail').fill('bruno@clinicavida.com.br')
+    await page.getByRole('button', { name: 'Enviar código' }).click()
+    const otp = calls.find((c) => c.path.startsWith('/auth/v1/otp'))?.body as { email: string; data: { kind: string } }
+    expect(otp.email).toBe('bruno@clinicavida.com.br')
+    expect(otp.data.kind).toBe('customer')
+
+    await page.getByLabel('Código').fill('000000')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+    await expect(page.getByText('Código inválido ou expirado')).toBeVisible()
+    await page.getByLabel('Código').fill('123456')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Minhas cotações' })).toBeVisible()
+    await expect(page.getByText('Cotação pronta')).toBeVisible()
+    await expect(page.getByRole('link', { name: /COT-000123/ })).toHaveAttribute('href', '/cotacao/tok123')
+    await expect(page.getByRole('link', { name: /COT-000125/ })).toHaveAttribute('href', '/pedido/COT-000125?t=tok125')
+    await shot(page, 'minhas-cotacoes')
+  })
+
+  test('equipe entra por /admin', async ({ page }) => {
+    await mockSupabase(page)
+    await page.goto('/painel')
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(page.getByRole('heading', { name: 'Área da equipe' })).toBeVisible()
+  })
+
   test('cliente compara opções e aprova a cotação', async ({ page }) => {
     const calls = await mockSupabase(page)
     await page.goto('/cotacao/tok123')
