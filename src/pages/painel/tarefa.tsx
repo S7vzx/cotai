@@ -36,6 +36,7 @@ import { SITE_URL } from '@/lib/supabase'
 import { cn, errorMessage } from '@/lib/utils'
 import type { Priority, QuoteStatus } from '@/types/domain'
 import { brDate, brl, renderTemplate } from '../../../supabase/functions/_shared/templates'
+import { PRODUCT_CONDITIONS } from '../../../supabase/functions/_shared/validation'
 import { ItemOptionsEditor, toDraft, type OptionDraft } from './tarefa-options'
 
 const EDITABLE: QuoteStatus[] = ['novo', 'em_cotacao', 'cotado', 'enviado']
@@ -123,6 +124,8 @@ export default function Tarefa() {
         freight_value: d.freight_included ? 0 : d.freight_value,
         customer_notes: d.customer_notes || null,
         internal_notes: d.internal_notes || null,
+        condition: d.condition || null,
+        origin: d.origin || null,
         ...(showCosts ? { supplier_contact: d.supplier_contact || null, cost_price: d.cost_price || null } : {}),
       })),
     )
@@ -315,6 +318,10 @@ export default function Tarefa() {
                   <dd className="font-medium tabular">
                     {money(it.target_price)}/un · {money(it.target_price * it.quantity)}
                   </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-[13px] text-fg-2">Estado aceito</dt>
+                  <dd className="font-medium">{it.accepted_conditions.map((c) => PRODUCT_CONDITIONS[c]).join(', ')}</dd>
                 </div>
               </dl>
               {it.description && <p className="mt-3 whitespace-pre-line text-[15px]">{it.description}</p>}

@@ -2,6 +2,10 @@
 // Espelham o schema em supabase/migrations. Quando o Supabase local estiver
 // rodando, `npm run db:types` gera src/types/database.ts com os tipos exatos.
 
+import type { OptionOrigin, ProductCondition } from '../../supabase/functions/_shared/validation'
+
+export type { OptionOrigin, ProductCondition }
+
 export type AppRole = 'admin' | 'cotador' | 'comprador'
 
 export type QuoteStatus =
@@ -84,6 +88,7 @@ export interface QuoteItem {
   unit: string
   target_price: number
   notes: string | null
+  accepted_conditions: ProductCondition[]
   not_found: boolean
   position: number
 }
@@ -110,6 +115,8 @@ export interface QuoteOption {
   freight_value: number
   customer_notes: string | null
   internal_notes: string | null
+  condition: ProductCondition | null
+  origin: OptionOrigin | null
   selected_by_customer: boolean
   position: number
 }

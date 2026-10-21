@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRealtime } from '@/lib/realtime'
 import { invoke, supabase, unwrap } from '@/lib/supabase'
-import type { PurchaseStatus, PurchaseTask } from '@/types/domain'
+import type { OptionOrigin, ProductCondition, PurchaseStatus, PurchaseTask } from '@/types/domain'
 
 export interface PurchaseRow {
   id: string
@@ -32,6 +32,8 @@ export interface PurchaseRow {
     payment_terms: string | null
     freight_included: boolean
     freight_value: number
+    condition: ProductCondition | null
+    origin: OptionOrigin | null
     cost_price: number | null
     supplier_contact: string | null
     internal_notes: string | null

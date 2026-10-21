@@ -77,6 +77,52 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
   )
 }
 
+/** Escolha múltipla em chips (ex.: estados aceitos do produto). */
+export function ChipToggleGroup<T extends string>({
+  value,
+  onChange,
+  options,
+  className,
+  invalid,
+  ...rest
+}: {
+  value: T[]
+  onChange: (value: T[]) => void
+  options: { value: T; label: React.ReactNode }[]
+  className?: string
+  invalid?: boolean
+  id?: string
+  'aria-label'?: string
+  'aria-describedby'?: string
+}) {
+  return (
+    <div role="group" {...rest} aria-invalid={invalid || undefined} className={cn('flex flex-wrap gap-2', className)}>
+      {options.map((o) => {
+        const on = value.includes(o.value)
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() =>
+              onChange(
+                on ? value.filter((v) => v !== o.value) : options.map((x) => x.value).filter((v) => v === o.value || value.includes(v)),
+              )
+            }
+            className={cn(
+              'inline-flex h-11 items-center gap-1.5 rounded-full border px-4 text-[15px] font-medium transition-colors',
+              on ? 'border-accent bg-accent-soft text-accent-text' : 'border-line text-fg-2 hover:text-fg',
+            )}
+          >
+            {on && <Check className="size-4" strokeWidth={2.5} />}
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('animate-pulse rounded-lg bg-surface-2', className)} aria-hidden />
 }

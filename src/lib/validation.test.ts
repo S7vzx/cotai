@@ -9,6 +9,7 @@ const base = {
       quantity: '3',
       unit: 'un',
       target_price: 120.456,
+      accepted_conditions: ['novo', 'seminovo', 'novo', 'quebrado'],
       photos: ['pedidos/7a6f1d2e-1111-4222-8333-944455556666/0.jpg', '../hack.jpg'],
     },
   ],
@@ -33,6 +34,11 @@ describe('validação do pedido público (Edge Function)', () => {
     expect(() => parseOrder({ ...base, items: [{ ...base.items[0], reference_url: 'javascript:alert(1)' }] })).toThrow(
       'o link deve começar com http',
     )
+  })
+
+  it('exige ao menos um estado do produto e descarta os desconhecidos', () => {
+    expect(parseOrder(base).items[0].accepted_conditions).toEqual(['novo', 'seminovo'])
+    expect(() => parseOrder({ ...base, items: [{ ...base.items[0], accepted_conditions: [] }] })).toThrow('Produto 1: escolha o estado aceito')
   })
 
   it('exige CPF ou CNPJ válido e guarda formatado', () => {

@@ -11,11 +11,20 @@ export interface OrderInput {
     unit: string
     target_price: number
     notes: string | null
+    accepted_conditions: ProductCondition[]
     photos: string[]
   }[]
   coupon: string | null
   accepted_terms: boolean
 }
+
+/** Estados do produto, na ordem de exibição (mesma lista de public.product_conditions()). */
+export const PRODUCT_CONDITIONS = { novo: 'Novo', quase_novo: '99% novo', seminovo: 'Seminovo', usado: 'Usado' } as const
+export type ProductCondition = keyof typeof PRODUCT_CONDITIONS
+
+/** De onde vem a opção cotada. */
+export const OPTION_ORIGINS = { brasil: 'Brasil', china_fabricante: 'Fabricante na China', agente_compra: 'Agente de compra' } as const
+export type OptionOrigin = keyof typeof OPTION_ORIGINS
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 const opt = (v: unknown, max: number) => str(v, max) || null
@@ -98,6 +107,10 @@ export function parseOrder(body: Record<string, unknown>, fieldModes: Record<str
     const reference = opt(it.reference_url, 500)
     if (reference && !/^https?:\/\//i.test(reference)) throw new Error(`${label}: o link deve começar com http`)
     const category = opt(it.category_id, 40)
+    const conditions = (Array.isArray(it.accepted_conditions) ? it.accepted_conditions : []).filter(
+      (c): c is ProductCondition => typeof c === 'string' && c in PRODUCT_CONDITIONS,
+    )
+    if (conditions.length === 0) throw new Error(`${label}: escolha o estado aceito`)
     for (const [field, value] of [
       ['reference_url', reference],
       ['notes', opt(it.notes, 1)],
@@ -114,6 +127,7 @@ export function parseOrder(body: Record<string, unknown>, fieldModes: Record<str
       unit: str(it.unit, 10) || 'un',
       target_price: Math.round(target * 100) / 100,
       notes: opt(it.notes, 2000),
+      accepted_conditions: [...new Set(conditions)],
       photos,
     }
   })

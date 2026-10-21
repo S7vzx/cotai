@@ -18,6 +18,7 @@ import { PURCHASE_ORDER, PURCHASE_STATUS } from '@/lib/status'
 import { signedUrl } from '@/lib/supabase'
 import { cn, errorMessage } from '@/lib/utils'
 import type { PurchaseStatus } from '@/types/domain'
+import { OPTION_ORIGINS, PRODUCT_CONDITIONS } from '../../../supabase/functions/_shared/validation'
 
 const MESSAGES: Partial<Record<PurchaseStatus, (r: PurchaseRow) => string>> = {
   comprado: (r) => `Boa notícia: compramos ${r.item_name} (${r.quantity} ${r.unit}) do seu pedido.`,
@@ -335,6 +336,18 @@ function PurchaseSheet({
               <div className="col-span-2">
                 <dt className="text-[13px] text-fg-2">Contato do fornecedor</dt>
                 <dd>{o.supplier_contact}</dd>
+              </div>
+            )}
+            {o?.condition && (
+              <div>
+                <dt className="text-[13px] text-fg-2">Estado</dt>
+                <dd>{PRODUCT_CONDITIONS[o.condition]}</dd>
+              </div>
+            )}
+            {o?.origin && (
+              <div>
+                <dt className="text-[13px] text-fg-2">Origem</dt>
+                <dd>{OPTION_ORIGINS[o.origin]}</dd>
               </div>
             )}
             {o?.payment_terms && (

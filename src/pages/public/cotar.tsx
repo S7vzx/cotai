@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Skeleton } from "@/components/ui/controls";
+import { Checkbox, ChipToggleGroup, Skeleton } from "@/components/ui/controls";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { DocumentInput, MoneyInput, PhoneInput } from "@/components/shared/inputs";
@@ -22,7 +22,8 @@ import { money, toE164, waLink } from "@/lib/format";
 import { isValidDocument } from "@/lib/masks";
 import { invoke } from "@/lib/supabase";
 import { cn, errorMessage } from "@/lib/utils";
-import type { FeeResult, FieldMode } from "@/types/domain";
+import type { FeeResult, FieldMode, ProductCondition } from "@/types/domain";
+import { PRODUCT_CONDITIONS } from "../../../supabase/functions/_shared/validation";
 import { PixBox, type PixCharge, type PixManual } from "./pix-box";
 import { PublicHeader, useDocumentTitle } from "./public-layout";
 
@@ -42,8 +43,13 @@ interface Product {
   unit: string;
   target_price: number;
   notes: string;
+  accepted_conditions: ProductCondition[];
   photos: Photo[];
 }
+
+const CONDITION_OPTIONS = Object.entries(PRODUCT_CONDITIONS).map(
+  ([value, label]) => ({ value: value as ProductCondition, label }),
+);
 
 const newProduct = (): Product => ({
   key: crypto.randomUUID(),
@@ -55,6 +61,7 @@ const newProduct = (): Product => ({
   unit: "un",
   target_price: 0,
   notes: "",
+  accepted_conditions: ["novo"],
   photos: [],
 });
 
@@ -167,6 +174,8 @@ export default function Cotar() {
         e[`${i}.quantity`] = "Quantidade mínima: 1";
       if (!p.target_price || p.target_price <= 0)
         e[`${i}.target_price`] = "Informe quanto quer pagar";
+      if (p.accepted_conditions.length === 0)
+        e[`${i}.accepted_conditions`] = "Escolha pelo menos um estado";
       if (p.photos.length === 0)
         e[`${i}.photos`] = "Adicione pelo menos uma foto";
       if (mode("reference_url") === "obrigatorio" && !p.reference_url)
@@ -279,6 +288,7 @@ export default function Cotar() {
           unit: p.unit,
           target_price: p.target_price,
           notes: p.notes || null,
+          accepted_conditions: p.accepted_conditions,
           photos,
         };
       });
@@ -672,6 +682,23 @@ export default function Cotar() {
                         />
                       </Field>
 
+                      <Field
+                        label="Estado do produto"
+                        required
+                        error={errors[`${i}.accepted_conditions`]}
+                        hint="Marque todos que você aceita"
+                      >
+                        <ChipToggleGroup
+                          aria-label={`Estado aceito do produto ${i + 1}`}
+                          options={CONDITION_OPTIONS}
+                          value={p.accepted_conditions}
+                          invalid={!!errors[`${i}.accepted_conditions`]}
+                          onChange={(v) =>
+                            updateProduct(p.key, { accepted_conditions: v })
+                          }
+                        />
+                      </Field>
+
                       {mode("reference_url") !== "oculto" && (
                         <Field
                           label="Link de referência"
@@ -746,7 +773,8 @@ export default function Cotar() {
                   </h2>
                   <p className="mt-2 font-semibold">{customer.name}</p>
                   <p className="text-[15px] text-fg-2">
-                    {customer.company} · {customer.whatsapp} · {customer.email}
+                    {customer.company} · {customer.cnpj} · {customer.whatsapp} ·{" "}
+                    {customer.email}
                   </p>
                   <button
                     className="mt-2 text-[15px] text-accent-text"
@@ -771,7 +799,10 @@ export default function Cotar() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{p.name}</p>
                           <p className="text-[13px] text-fg-2 tabular">
-                            {p.quantity} {p.unit} × {money(p.target_price)}
+                            {p.quantity} {p.unit} × {money(p.target_price)} ·{" "}
+                            {p.accepted_conditions
+                              .map((c) => PRODUCT_CONDITIONS[c])
+                              .join(", ")}
                           </p>
                         </div>
                         <span className="font-semibold tabular">

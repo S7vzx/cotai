@@ -16,8 +16,8 @@ function payload(over: Record<string, unknown> = {}) {
   return {
     customer: { name: 'Ana Souza', company: 'Loja da Ana', whatsapp: '+5579999990001', email: 'ana@loja.com' },
     items: [
-      { name: 'Cadeira de escritório', quantity: 10, unit: 'un', target_price: 250, photos: ['tmp/a.jpg'] },
-      { name: 'Mesa', quantity: 2, unit: 'un', target_price: 900, photos: [] },
+      { name: 'Cadeira de escritório', quantity: 10, unit: 'un', target_price: 250, accepted_conditions: ['novo'], photos: ['tmp/a.jpg'] },
+      { name: 'Mesa', quantity: 2, unit: 'un', target_price: 900, accepted_conditions: ['novo', 'quase_novo', 'usado'], photos: [] },
     ],
     accepted_terms: true,
     ...over,
@@ -506,5 +506,50 @@ describe('paridade entre banco e front-end', () => {
         expect(Number(r.rows[0].f.total)).toBeCloseTo(previewFee({ enabled: true, ...c, tiers: [...c.tiers] }, n), 2)
       }
     }
+  })
+})
+
+describe('estado do produto e origem', () => {
+  it('a lista de estados do banco é a mesma do código', async () => {
+    const { PRODUCT_CONDITIONS } = await import('../../supabase/functions/_shared/validation')
+    const r = await db.query<{ c: string[] }>('select public.product_conditions() as c')
+    expect(r.rows[0].c).toEqual(Object.keys(PRODUCT_CONDITIONS))
+  })
+
+  it('grava os estados aceitos e recusa estado vazio ou desconhecido', async () => {
+    const r = await createRequest()
+    const items = await db.query<{ accepted_conditions: string[] }>(
+      'select accepted_conditions from public.quote_items where request_id = $1 order by position',
+      [r.id],
+    )
+    expect(items.rows.map((i) => i.accepted_conditions)).toEqual([['novo'], ['novo', 'quase_novo', 'usado']])
+    const item = { name: 'Cadeira', quantity: 1, unit: 'un', target_price: 10, photos: [] }
+    await expect(createRequest({ items: [{ ...item, accepted_conditions: [] }] })).rejects.toThrow(/estado aceito/)
+    await expect(createRequest({ items: [{ ...item, accepted_conditions: ['quebrado'] }] })).rejects.toThrow(/estado aceito/)
+  })
+
+  it('a opção só aceita estado e origem conhecidos, e a proposta mostra os dois', async () => {
+    const r = await createRequest()
+    const ins = (condition: string, origin: string) =>
+      db.query(
+        `insert into public.quote_options (item_id, label, sale_price, condition, origin)
+         select id, 'A', 200, $2, $3 from public.quote_items where request_id = $1 and position = 0`,
+        [r.id, condition, origin],
+      )
+    await expect(ins('quebrado', 'brasil')).rejects.toThrow(/check/)
+    await expect(ins('novo', 'marte')).rejects.toThrow(/check/)
+    await ins('quase_novo', 'china_fabricante')
+    for (const s of ['em_cotacao', 'cotado', 'enviado']) {
+      await db.query('update public.quote_requests set status = $2 where id = $1', [r.id, s])
+    }
+    const q = await as(db, svc, () =>
+      db.query<{ q: { items: { accepted_conditions: string[]; options: { condition: string; origin: string }[] }[] } }>(
+        'select public.get_public_quote($1) as q',
+        [r.public_token],
+      ),
+    )
+    const first = q.rows[0].q.items[0]
+    expect(first.accepted_conditions).toEqual(['novo'])
+    expect(first.options[0]).toMatchObject({ condition: 'quase_novo', origin: 'china_fabricante' })
   })
 })

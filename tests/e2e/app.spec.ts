@@ -62,6 +62,13 @@ test.describe('site público', () => {
     await page.getByLabel('Quantidade').fill('20')
     await page.locator('input[inputmode=numeric][placeholder="0,00"]').fill('16000')
     await expect(page.getByText(/Total-alvo:/)).toContainText('3.200,00')
+    // estado aceito: "Novo" vem marcado; sem nenhum, não avança
+    await expect(page.getByRole('button', { name: 'Novo', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Novo', exact: true }).click()
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(page.getByText('Escolha pelo menos um estado')).toBeVisible()
+    await page.getByRole('button', { name: 'Seminovo' }).click()
+    await page.getByRole('button', { name: '99% novo' }).click()
     await shot(page, 'cotar-2-produtos', false)
     await page.getByRole('button', { name: 'Continuar' }).click()
 
@@ -84,12 +91,13 @@ test.describe('site público', () => {
 
     const sent = calls.find((c) => c.path.includes('create-quote-request'))?.body as {
       customer: { whatsapp: string }
-      items: { photos: string[]; target_price: number }[]
+      items: { photos: string[]; target_price: number; accepted_conditions: string[] }[]
       coupon: string
     }
     expect(sent.customer.whatsapp).toBe('+5579977776666')
     expect(sent.items[0].target_price).toBe(160)
     expect(sent.items[0].photos).toHaveLength(1)
+    expect(sent.items[0].accepted_conditions).toEqual(['quase_novo', 'seminovo'])
     expect(sent.coupon).toBe('BEMVINDO')
   })
 
@@ -140,6 +148,7 @@ test.describe('site público', () => {
     // opção mais barata pré-selecionada; total com taxa abatida
     await expect(page.getByText('Taxa de cotação abatida')).toBeVisible()
     await expect(page.getByText('Não encontramos este produto pelo preço-alvo.')).toBeVisible()
+    await expect(page.getByText('Fabricante na China')).toBeVisible()
     await shot(page, 'cotacao')
     await page.getByRole('radio', { name: /Opção B/ }).check()
     await page.getByRole('button', { name: /Aprovar/ }).click()
@@ -182,6 +191,8 @@ test.describe('painel', () => {
     await expect(page.getByText('Opção A').first()).toBeVisible()
     // margem calculada e alerta de margem baixa na opção B (5%)
     await expect(page.getByText(/Margem abaixo de 10%/)).toBeVisible()
+    await expect(page.getByText('Novo, 99% novo').first()).toBeVisible()
+    await expect(page.getByLabel('Origem').nth(1)).toHaveValue('agente_compra')
     await shot(page, 'painel-tarefa')
     await page.getByRole('button', { name: /Enviar ao cliente/ }).click()
     await expect(page.getByText('Prévia do WhatsApp')).toBeVisible()

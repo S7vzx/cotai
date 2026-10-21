@@ -12,7 +12,8 @@ import { EmptyState } from '@/components/shared/states'
 import { date, money, phone, waLink } from '@/lib/format'
 import { invoke } from '@/lib/supabase'
 import { cn, errorMessage } from '@/lib/utils'
-import type { QuoteStatus } from '@/types/domain'
+import type { OptionOrigin, ProductCondition, QuoteStatus } from '@/types/domain'
+import { OPTION_ORIGINS, PRODUCT_CONDITIONS } from '../../../supabase/functions/_shared/validation'
 import { useDocumentTitle } from './public-layout'
 
 interface PublicOption {
@@ -25,6 +26,8 @@ interface PublicOption {
   freight_value: number
   customer_notes: string | null
   selected: boolean
+  condition: ProductCondition | null
+  origin: OptionOrigin | null
 }
 
 interface PublicQuote {
@@ -48,6 +51,7 @@ interface PublicQuote {
     unit: string
     target_price: number
     not_found: boolean
+    accepted_conditions?: ProductCondition[]
     photo_urls?: string[]
     options: PublicOption[]
   }[]
@@ -230,6 +234,16 @@ export default function Cotacao() {
                               <span className="text-[15px] text-fg-2 tabular">Subtotal {money(o.sale_price * it.quantity)}</span>
                             </div>
                             <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-fg-2">
+                              {o.condition && (
+                                <div>
+                                  Estado: <b className="font-medium text-fg">{PRODUCT_CONDITIONS[o.condition]}</b>
+                                </div>
+                              )}
+                              {o.origin && (
+                                <div>
+                                  Origem: <b className="font-medium text-fg">{OPTION_ORIGINS[o.origin]}</b>
+                                </div>
+                              )}
                               {o.lead_time_days != null && <div>Prazo: <b className="font-medium text-fg">{o.lead_time_days} dias</b></div>}
                               {o.payment_terms && <div>Pagamento: <b className="font-medium text-fg">{o.payment_terms}</b></div>}
                               <div>

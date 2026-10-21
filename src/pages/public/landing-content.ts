@@ -2,12 +2,12 @@ import type { LandingContent } from '@/types/domain'
 
 // Textos da landing fixos no código por enquanto, para a página aparecer
 // na hora, sem esperar o banco (ver docs/DECISOES.md). Copiados de
-// settings.landing_content em produção em 20/10/2026.
+// settings.landing_content em produção em 20/10/2026, com os textos sobre China.
 
 export const LANDING: LandingContent = {
   hero: {
     title: 'Mande a foto. A gente acha o preço.',
-    subtitle: 'Você diz quanto quer pagar, nossa equipe pesquisa os fornecedores e te responde no WhatsApp.',
+    subtitle: 'Você diz quanto quer pagar e a gente cota no Brasil ou direto da China, com fabricantes e agentes de compra. A resposta chega no WhatsApp.',
     cta_primary: 'Solicitar cotação',
     cta_secondary: 'Como funciona',
   },
@@ -26,7 +26,7 @@ export const LANDING: LandingContent = {
     },
     {
       title: 'A gente pesquisa',
-      text: 'Nossa equipe procura o produto na nossa rede de fornecedores.',
+      text: 'Nossa equipe procura o produto com fornecedores no Brasil e direto com fabricantes na China ou agentes de compra.',
       active: true,
       payment: false,
     },
@@ -39,7 +39,7 @@ export const LANDING: LandingContent = {
   ],
   benefits: [
     { title: 'Menos tempo procurando', text: 'Você manda uma foto e volta ao seu trabalho. A pesquisa fica com a gente.' },
-    { title: 'Rede de fornecedores', text: 'Comparamos opções que você dificilmente acharia sozinho.' },
+    { title: 'Direto da China', text: 'Cotamos com fabricantes chineses e agentes de compra, sem intermediários a mais no caminho.' },
     { title: 'Resposta rápida', text: 'Prazo claro desde o primeiro minuto, com acompanhamento em tempo real.' },
     { title: 'Tudo registrado', text: 'Pedidos, propostas e aprovações organizados em um só lugar.' },
   ],
@@ -68,6 +68,17 @@ export const LANDING_FAQ = [
     id: 'preco',
     question: 'E se não encontrarem pelo meu preço?',
     answer: 'Avisamos você com as melhores alternativas encontradas, ou informamos que não foi possível atender ao preço-alvo.',
+  },
+  {
+    id: 'china',
+    question: 'Vocês cotam produtos da China?',
+    answer:
+      'Sim. Além de fornecedores no Brasil, cotamos direto com fabricantes na China ou por agentes de compra. Cada opção da cotação mostra a origem, para você decidir.',
+  },
+  {
+    id: 'estado',
+    question: 'Posso pedir produto usado ou seminovo?',
+    answer: 'Pode. No pedido, marque os estados que você aceita: novo, 99% novo, seminovo ou usado. A cotação informa o estado de cada opção.',
   },
   {
     id: 'varios',

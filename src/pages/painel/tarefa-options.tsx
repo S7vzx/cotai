@@ -1,12 +1,13 @@
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/controls'
-import { Field, Input, Textarea } from '@/components/ui/input'
+import { Field, Input, NativeSelect, Textarea } from '@/components/ui/input'
 import { MoneyInput } from '@/components/shared/inputs'
 import { Comparison } from '@/pages/public/cotacao'
 import { money } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { QuoteItem, QuoteOption, Supplier } from '@/types/domain'
+import type { OptionOrigin, ProductCondition, QuoteItem, QuoteOption, Supplier } from '@/types/domain'
+import { OPTION_ORIGINS, PRODUCT_CONDITIONS } from '../../../supabase/functions/_shared/validation'
 
 export interface OptionDraft {
   id?: string
@@ -22,6 +23,8 @@ export interface OptionDraft {
   freight_value: number
   customer_notes: string
   internal_notes: string
+  condition: ProductCondition | ''
+  origin: OptionOrigin | ''
 }
 
 export const LABELS = 'ABCDEFGHIJ'.split('')
@@ -41,6 +44,8 @@ export function toDraft(o: QuoteOption): OptionDraft {
     freight_value: Number(o.freight_value ?? 0),
     customer_notes: o.customer_notes ?? '',
     internal_notes: o.internal_notes ?? '',
+    condition: o.condition ?? '',
+    origin: o.origin ?? '',
   }
 }
 
@@ -58,6 +63,8 @@ export function emptyDraft(label: string): OptionDraft {
     freight_value: 0,
     customer_notes: '',
     internal_notes: '',
+    condition: '',
+    origin: '',
   }
 }
 
@@ -97,6 +104,7 @@ export function ItemOptionsEditor({
           <p className="text-[13px] text-fg-2 tabular">
             {item.quantity} {item.unit} · alvo {money(item.target_price)}/un · {money(item.target_price * item.quantity)}
           </p>
+          <p className="text-[13px] text-fg-2">Aceita: {item.accepted_conditions.map((c) => PRODUCT_CONDITIONS[c]).join(', ')}</p>
         </div>
         <label className="flex shrink-0 items-center gap-2 text-[13px] text-fg-2">
           Não encontrado
@@ -151,6 +159,30 @@ export function ItemOptionsEditor({
                   )}
                   <Field label="Preço ao cliente (un)">
                     <MoneyInput value={d.sale_price} onValueChange={(v) => update(d.key, { sale_price: v })} />
+                  </Field>
+                  <Field label="Estado do produto">
+                    <NativeSelect
+                      value={d.condition}
+                      onChange={(e) => update(d.key, { condition: e.target.value as ProductCondition | '' })}
+                    >
+                      <option value="">Não informado</option>
+                      {Object.entries(PRODUCT_CONDITIONS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                          {item.accepted_conditions.includes(value as ProductCondition) ? '' : ' (cliente não pediu)'}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                  <Field label="Origem">
+                    <NativeSelect value={d.origin} onChange={(e) => update(d.key, { origin: e.target.value as OptionOrigin | '' })}>
+                      <option value="">Não informada</option>
+                      {Object.entries(OPTION_ORIGINS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </Field>
                   <Field label="Prazo de entrega (dias)">
                     <Input
