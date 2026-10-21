@@ -45,6 +45,8 @@ export function useBoard(filters: { since?: string } = {}) {
 
 export interface RequestDetail extends QuoteRequest {
   customers: Customer
+  /** Pedido original, quando este é uma recompra. */
+  rebuy_source: { code: string } | null
   quote_items: (QuoteItem & { quote_item_photos: QuoteItemPhoto[] })[]
 }
 
@@ -62,7 +64,11 @@ export function useRequest(id: string | undefined) {
     enabled: !!id,
     queryFn: async () => {
       const r = unwrap(
-        await supabase.from('quote_requests').select('*, customers(*), quote_items(*, quote_item_photos(*))').eq('id', id!).maybeSingle(),
+        await supabase
+          .from('quote_requests')
+          .select('*, customers(*), rebuy_source:rebuy_of(code), quote_items(*, quote_item_photos(*))')
+          .eq('id', id!)
+          .maybeSingle(),
       ) as RequestDetail | null
       if (r) {
         r.quote_items.sort((a, b) => a.position - b.position)
@@ -171,6 +177,24 @@ export function useConfirmPayment(requestId: string) {
       qc.invalidateQueries({ queryKey: ['request', requestId] })
       qc.invalidateQueries({ queryKey: ['board'] })
       qc.invalidateQueries({ queryKey: ['history', requestId] })
+    },
+  })
+}
+
+/** Recompra com o mesmo preço (ou menor): vira compra sem passar pelo cliente. */
+export function useConfirmRebuy(requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      unwrap(await supabase.rpc('confirm_rebuy', { p_request_id: requestId }))
+      await invoke('notify-customer', { request_id: requestId, event: 'aprovacao_recebida' }).catch(() => null)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['request', requestId] })
+      qc.invalidateQueries({ queryKey: ['options', requestId] })
+      qc.invalidateQueries({ queryKey: ['board'] })
+      qc.invalidateQueries({ queryKey: ['history', requestId] })
+      qc.invalidateQueries({ queryKey: ['purchases'] })
     },
   })
 }

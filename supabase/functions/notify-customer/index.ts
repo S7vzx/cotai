@@ -10,6 +10,7 @@ const ALLOWED: NotificationEvent[] = [
   'lembrete_resposta',
   'cotacao_pronta',
   'pedido_recebido',
+  'aprovacao_recebida', // recompra confirmada pela equipe
 ]
 
 Deno.serve(

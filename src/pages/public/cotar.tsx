@@ -693,9 +693,14 @@ export default function Cotar() {
                           options={CONDITION_OPTIONS}
                           value={p.accepted_conditions}
                           invalid={!!errors[`${i}.accepted_conditions`]}
-                          onChange={(v) =>
-                            updateProduct(p.key, { accepted_conditions: v })
-                          }
+                          onChange={(v) => {
+                            updateProduct(p.key, { accepted_conditions: v });
+                            if (v.length)
+                              setErrors((e) => {
+                                const { [`${i}.accepted_conditions`]: _drop, ...rest } = e;
+                                return rest;
+                              });
+                          }}
                         />
                       </Field>
 

@@ -18,6 +18,7 @@ import {
   useAddComment,
   useComments,
   useConfirmPayment,
+  useConfirmRebuy,
   useDeleteRequest,
   useHistory,
   useOptions,
@@ -54,6 +55,7 @@ export default function Tarefa() {
   const setStatus = useSetStatus()
   const saveOptions = useSaveOptions(id)
   const confirmPayment = useConfirmPayment(id)
+  const confirmRebuy = useConfirmRebuy(id)
   const del = useDeleteRequest()
 
   const [drafts, setDrafts] = React.useState<Record<string, OptionDraft[]>>({})
@@ -154,6 +156,17 @@ export default function Tarefa() {
     }
   }
 
+  async function onConfirmRebuy() {
+    try {
+      if (dirty) await save({ silent: true })
+      await confirmRebuy.mutateAsync()
+      setDirty(false)
+      toast.success('Recompra confirmada: os produtos foram para Compras')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    }
+  }
+
   async function takeTask() {
     try {
       await update.mutateAsync({
@@ -239,6 +252,35 @@ export default function Tarefa() {
           </Menu>
         </div>
       </header>
+
+      {r.rebuy_of && (
+        <section className="mb-6 flex flex-col gap-3 rounded-2xl bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-[17px] font-semibold">
+              Recompra
+              {r.rebuy_source && (
+                <>
+                  {' '}
+                  de{' '}
+                  <Link to={`/painel/tarefas/${r.rebuy_of}`} className="text-accent-text hover:underline">
+                    {r.rebuy_source.code}
+                  </Link>
+                </>
+              )}
+            </h2>
+            <p className="mt-1 text-[15px] text-fg-2">
+              {r.status === 'cotado'
+                ? 'O cliente pediu de novo com a opção e o preço da compra anterior. Confira com o fornecedor: se o preço se mantiver ou baixar, confirme e o pedido vai direto para Compras. Se subir, ajuste a opção e envie ao cliente para aprovar.'
+                : 'O cliente pediu de novo os produtos de uma compra anterior.'}
+            </p>
+          </div>
+          {!isBuyer && r.status === 'cotado' && can('send_quote') && (
+            <Button className="shrink-0" onClick={onConfirmRebuy} loading={confirmRebuy.isPending}>
+              Confirmar recompra
+            </Button>
+          )}
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* ---------------- coluna do pedido */}

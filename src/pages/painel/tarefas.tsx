@@ -15,7 +15,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Segmented, Skeleton } from '@/components/ui/controls'
 import { Input, NativeSelect } from '@/components/ui/input'
-import { PriorityBadge, StatusBadge } from '@/components/shared/badges'
+import { Badge, PriorityBadge, StatusBadge } from '@/components/shared/badges'
 import { Avatar, StorageImage } from '@/components/shared/media'
 import { EmptyState, ErrorState, PageHeader } from '@/components/shared/states'
 import { useAuth } from '@/features/auth/auth'
@@ -58,7 +58,10 @@ function TaskCard({ r, sla, overlay }: { r: BoardItem; sla: number; overlay?: bo
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[13px] font-medium text-fg-2 tabular">{r.code}</span>
-            <PriorityBadge priority={r.priority} hideNormal />
+            <span className="flex items-center gap-1">
+              {r.rebuy_of && <Badge tone="purple">Recompra</Badge>}
+              <PriorityBadge priority={r.priority} hideNormal />
+            </span>
           </div>
           <p className="truncate text-[15px] font-semibold leading-snug">{r.customers.company || r.customers.name}</p>
           <p className="truncate text-[13px] text-fg-2">{r.customers.name}</p>
@@ -185,7 +188,10 @@ function ListView({ items, sla }: { items: BoardItem[]; sla: number }) {
                   <span className="block truncate text-[13px] text-fg-2">{r.customers.name}</span>
                 </td>
                 <td className="px-4">
-                  <StatusBadge status={r.status} short />
+                  <span className="flex items-center gap-1">
+                    <StatusBadge status={r.status} short />
+                    {r.rebuy_of && <Badge tone="purple">Recompra</Badge>}
+                  </span>
                 </td>
                 <td className="px-4 text-right tabular">{r.quote_items.length}</td>
                 <td className="px-4 text-right tabular">{money(targetTotal(r))}</td>

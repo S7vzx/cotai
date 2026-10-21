@@ -68,6 +68,9 @@ test.describe('site público', () => {
     await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.getByText('Escolha pelo menos um estado')).toBeVisible()
     await page.getByRole('button', { name: 'Seminovo' }).click()
+    await expect(page.getByText('Escolha pelo menos um estado')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Seminovo' }).click()
+    await page.getByRole('button', { name: 'Seminovo' }).click()
     await page.getByRole('button', { name: '99% novo' }).click()
     await shot(page, 'cotar-2-produtos', false)
     await page.getByRole('button', { name: 'Continuar' }).click()
@@ -131,7 +134,21 @@ test.describe('site público', () => {
     await expect(page.getByText('Cotação pronta')).toBeVisible()
     await expect(page.getByRole('link', { name: /COT-000123/ })).toHaveAttribute('href', '/cotacao/tok123')
     await expect(page.getByRole('link', { name: /COT-000125/ })).toHaveAttribute('href', '/pedido/COT-000125?t=tok125')
+    await expect(page.getByText('Recompra de COT-000122')).toBeVisible()
+    await expect(page.getByText('Confirmando preço')).toBeVisible()
     await shot(page, 'minhas-cotacoes')
+
+    // recompra: tira a touca, muda a quantidade do avental
+    await page.getByRole('button', { name: 'Comprar de novo' }).click()
+    await expect(page.getByText('Fabricante na China')).toBeVisible()
+    await page.getByRole('checkbox', { name: 'Incluir Touca descartável' }).click()
+    await page.getByLabel('Quantidade').first().fill('40')
+    await expect(page.getByText('R$ 900,00')).toBeVisible()
+    await shot(page, 'recompra', false)
+    await page.getByRole('button', { name: 'Pedir recompra' }).click()
+    await expect(page.getByText(/Recompra COT-000131 enviada/)).toBeVisible()
+    const sent = calls.find((c) => c.path.endsWith('/rpc/create_rebuy'))?.body as { p_code: string; p_items: unknown }
+    expect(sent).toEqual({ p_code: 'COT-000122', p_items: [{ item_id: 'i8', quantity: 40 }] })
   })
 
   test('equipe entra por /admin', async ({ page }) => {
@@ -200,6 +217,17 @@ test.describe('painel', () => {
     await page.getByRole('button', { name: 'Enviar', exact: true }).click()
     await expect(page.getByRole('link', { name: /Enviar pelo meu WhatsApp/ })).toBeVisible()
     expect(calls.some((c) => c.path.includes('send-quote'))).toBe(true)
+  })
+
+  test('equipe confirma uma recompra', async ({ page }) => {
+    await signIn(page)
+    const calls = await mockSupabase(page)
+    await page.goto('/painel/tarefas/r124')
+    await expect(page.getByRole('link', { name: 'COT-000122' })).toBeVisible()
+    await expect(page.getByText('Preço na compra anterior: R$ 29,90/un')).toBeVisible()
+    await page.getByRole('button', { name: 'Confirmar recompra' }).click()
+    await expect(page.getByText(/Recompra confirmada/)).toBeVisible()
+    expect(calls.find((c) => c.path.endsWith('/rpc/confirm_rebuy'))?.body).toEqual({ p_request_id: 'r124' })
   })
 
   test('compras', async ({ page }) => {

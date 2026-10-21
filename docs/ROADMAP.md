@@ -95,4 +95,4 @@ Os números entre parênteses apontam para as seções de `docs/ESPECIFICACAO.md
 - [x] CPF ou CNPJ obrigatório no pedido (validação dos dois)
 - [x] Estado do produto: cliente marca os estados aceitos (Novo, 99% novo, Seminovo, Usado); a equipe informa o estado de cada opção
 - [x] Origem da opção (Brasil, fabricante na China, agente de compra) visível na proposta + textos da landing sobre China
-- [ ] Recompra: "Comprar de novo" em Minhas cotações cria pedido com itens, opção e preço anteriores; a equipe confirma o preço e segue para a compra
+- [x] Recompra: "Comprar de novo" em Minhas cotações cria pedido com itens, opção e preço anteriores; a equipe confirma o preço e segue para a compra

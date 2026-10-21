@@ -14,6 +14,11 @@ O que ainda não foi verificado ou depende de algo externo.
 - **Edge Functions em execução:** os tipos foram checados com `deno check`, e a validação, os templates e o cálculo da taxa têm testes. A execução ponta a ponta das funções contra o Supabase real ainda não foi feita.
 - **`supabase/seed.sql`:** o usuário de desenvolvimento é criado direto em `auth.users`. Se a versão do Supabase local mudar o formato dessa tabela, crie o usuário pelo Studio. Ele depende das migrações: rodá-lo sozinho no editor SQL dá `relation "public.categories" does not exist`.
 
+## Fase 13 em produção (20/10/2026)
+- Aplicar no SQL Editor as migrações `20261020000008_product_condition_origin.sql` e `20261020000009_rebuy.sql`, nessa ordem.
+- Publicar de novo as Edge Functions (`create-quote-request` valida CPF/CNPJ e estado; `notify-customer` aceita o aviso de recompra confirmada): `npx supabase functions deploy --use-api --project-ref tuswxtkyicllszlxrmqt`.
+- A recompra criada pelo cliente não dispara e-mail para a equipe (o RPC roda no banco): ela aparece em tempo real no kanban, em "Cotado", com o selo "Recompra". Se quiserem aviso por e-mail/WhatsApp, mover a criação para uma Edge Function.
+
 ## Portal do cliente (precisa configurar no Supabase)
 - Em **Authentication → Emails**, inclua o código `{{ .Token }}` nos modelos **Magic Link** e **Confirm signup** (o padrão só traz o link; os dois funcionam).
 - **SMTP de produção (20/10/2026):** provisório pelo Gmail (`smtp.gmail.com`, porta 465, senha de app); envio do código de login testado e entregue. Limite de ~500 e-mails/dia e remetente `@gmail.com`. Quando houver domínio próprio, troque pelo Resend (`smtp.resend.com`, porta 465, usuário `resend`, senha = API key).

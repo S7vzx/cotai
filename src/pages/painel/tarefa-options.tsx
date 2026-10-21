@@ -105,6 +105,9 @@ export function ItemOptionsEditor({
             {item.quantity} {item.unit} · alvo {money(item.target_price)}/un · {money(item.target_price * item.quantity)}
           </p>
           <p className="text-[13px] text-fg-2">Aceita: {item.accepted_conditions.map((c) => PRODUCT_CONDITIONS[c]).join(', ')}</p>
+          {item.previous_price != null && (
+            <p className="text-[13px] font-medium text-accent-text tabular">Preço na compra anterior: {money(item.previous_price)}/un</p>
+          )}
         </div>
         <label className="flex shrink-0 items-center gap-2 text-[13px] text-fg-2">
           Não encontrado

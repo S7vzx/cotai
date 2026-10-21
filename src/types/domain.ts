@@ -73,6 +73,7 @@ export interface QuoteRequest {
   responded_at: string | null
   decline_reason: string | null
   fee_deducted: boolean
+  rebuy_of: string | null
   created_at: string
   updated_at: string
 }
@@ -89,6 +90,8 @@ export interface QuoteItem {
   target_price: number
   notes: string | null
   accepted_conditions: ProductCondition[]
+  /** Preço por unidade aprovado na compra anterior (só em recompras). */
+  previous_price: number | null
   not_found: boolean
   position: number
 }

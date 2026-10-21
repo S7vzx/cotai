@@ -553,3 +553,131 @@ describe('estado do produto e origem', () => {
     expect(first.options[0]).toMatchObject({ condition: 'quase_novo', origin: 'china_fabricante' })
   })
 })
+
+describe('recompra', () => {
+  // Pedido aprovado: Cadeira (opção B, R$ 230) e Mesa (opção A, R$ 240)
+  async function approvedQuote() {
+    const r = await createRequest()
+    await db.query(
+      `insert into public.quote_options (item_id, label, supplier_name, cost_price, sale_price, internal_notes, condition, origin, position)
+       select id, l.label, 'Fornecedor', 100, l.price, 'segredo', 'novo', 'china_fabricante', l.pos
+       from public.quote_items i
+       cross join (values ('A', 240, 0), ('B', 230, 1)) as l(label, price, pos)
+       where i.request_id = $1`,
+      [r.id],
+    )
+    for (const s of ['em_cotacao', 'cotado', 'enviado']) {
+      await db.query('update public.quote_requests set status = $2 where id = $1', [r.id, s])
+    }
+    const sel = await db.query<{ item: string; opt: string }>(
+      `select i.id as item, o.id as opt from public.quote_items i join public.quote_options o on o.item_id = i.id
+       where i.request_id = $1 and o.label = case when i.position = 0 then 'B' else 'A' end`,
+      [r.id],
+    )
+    const selections = Object.fromEntries(sel.rows.map((x) => [x.item, x.opt]))
+    await as(db, svc, () => db.query(`select public.respond_quote($1, 'aprovar', $2)`, [r.public_token, JSON.stringify(selections)]))
+    return r
+  }
+
+  type Mine = {
+    code: string
+    rebuy_of_code: string | null
+    rebuy_items: { item_id: string; name: string; quantity: number; sale_price: number }[]
+  }
+  const myRequests = async (userId: string) =>
+    (await as(db, { role: 'authenticated', userId }, () => db.query<{ r: Mine[] }>('select public.my_quote_requests() as r'))).rows[0].r
+  const rebuy = (userId: string, code: string, items: unknown) =>
+    as(db, { role: 'authenticated', userId }, () =>
+      db.query<{ r: { id: string; code: string } }>('select public.create_rebuy($1, $2) as r', [code, JSON.stringify(items)]),
+    )
+  const confirm = (userId: string, id: string) =>
+    as(db, { role: 'authenticated', userId }, () => db.query('select public.confirm_rebuy($1)', [id]))
+
+  it('cliente vê o que pode recomprar e pede de novo com a opção e o preço anteriores', async () => {
+    const r = await approvedQuote()
+    const cliente = await createUser(db, 'ana@loja.com', undefined, { kind: 'customer' })
+    const [mine] = await myRequests(cliente)
+    expect(mine.rebuy_items.map((i) => [i.name, Number(i.sale_price)])).toEqual([
+      ['Cadeira de escritório', 230],
+      ['Mesa', 240],
+    ])
+    expect(JSON.stringify(mine)).not.toMatch(/cost_price|internal_notes|supplier/)
+
+    const chair = mine.rebuy_items[0]
+    const created = (await rebuy(cliente, r.code, [{ item_id: chair.item_id, quantity: 15 }])).rows[0].r
+    const q = await db.query<{ status: string; payment_status: string; rebuy_of: string; fee_amount: string }>(
+      'select status, payment_status, rebuy_of, fee_amount from public.quote_requests where id = $1',
+      [created.id],
+    )
+    expect(q.rows[0]).toMatchObject({ status: 'cotado', payment_status: 'isento', rebuy_of: r.id })
+    expect(Number(q.rows[0].fee_amount)).toBe(0)
+    const items = await db.query<{ name: string; quantity: number; previous_price: string; accepted_conditions: string[] }>(
+      'select name, quantity, previous_price, accepted_conditions from public.quote_items where request_id = $1',
+      [created.id],
+    )
+    expect(items.rows).toHaveLength(1)
+    expect(items.rows[0]).toMatchObject({ name: 'Cadeira de escritório', quantity: 15, accepted_conditions: ['novo'] })
+    expect(Number(items.rows[0].previous_price)).toBe(230)
+    const opts = await db.query<{ label: string; sale_price: string; cost_price: string; condition: string; origin: string }>(
+      `select o.label, o.sale_price, o.cost_price, o.condition, o.origin from public.quote_options o
+       join public.quote_items i on i.id = o.item_id where i.request_id = $1`,
+      [created.id],
+    )
+    expect(opts.rows).toHaveLength(1)
+    expect(opts.rows[0]).toMatchObject({ label: 'A', condition: 'novo', origin: 'china_fabricante' })
+    expect(Number(opts.rows[0].sale_price)).toBe(230)
+    expect(Number(opts.rows[0].cost_price)).toBe(100)
+    const photos = await db.query(
+      'select 1 from public.quote_item_photos p join public.quote_items i on i.id = p.item_id where i.request_id = $1',
+      [created.id],
+    )
+    expect(photos.rows).toHaveLength(1)
+
+    const after = await myRequests(cliente)
+    expect(after.find((x) => x.code === created.code)?.rebuy_of_code).toBe(r.code)
+  })
+
+  it('só o dono, com cotação aprovada e logado, pode recomprar', async () => {
+    const r = await approvedQuote()
+    const outro = await createUser(db, 'bia@outra.com', undefined, { kind: 'customer' })
+    const cliente = await createUser(db, 'ana@loja.com', undefined, { kind: 'customer' })
+    const [mine] = await myRequests(cliente)
+    const items = [{ item_id: mine.rebuy_items[0].item_id, quantity: 1 }]
+    await expect(rebuy(outro, r.code, items)).rejects.toThrow(/não encontrada/)
+    await expect(rebuy(cliente, r.code, [])).rejects.toThrow(/pelo menos um produto/)
+    await expect(rebuy(cliente, r.code, [{ item_id: '00000000-0000-4000-8000-000000000000', quantity: 1 }])).rejects.toThrow(/indisponível/)
+    const pendente = await createRequest()
+    await expect(rebuy(cliente, pendente.code, items)).rejects.toThrow(/aprovadas/)
+    await expect(as(db, { role: 'anon' }, () => db.query(`select public.create_rebuy('x', '[]')`))).rejects.toThrow(/permission denied/)
+  })
+
+  it('equipe confirma e vira compra; preço maior exige enviar ao cliente', async () => {
+    const r = await approvedQuote()
+    const cliente = await createUser(db, 'ana@loja.com', undefined, { kind: 'customer' })
+    const [mine] = await myRequests(cliente)
+    const all = mine.rebuy_items.map((i) => ({ item_id: i.item_id, quantity: i.quantity }))
+    const a = (await rebuy(cliente, r.code, all)).rows[0].r
+    const b = (await rebuy(cliente, r.code, all)).rows[0].r
+
+    await expect(confirm(comprador, a.id)).rejects.toThrow(/Sem permissão/)
+    await confirm(cotador, a.id)
+    const q = await db.query<{ status: string }>('select status from public.quote_requests where id = $1', [a.id])
+    expect(q.rows[0].status).toBe('aprovado')
+    const tasks = await db.query('select 1 from public.purchase_tasks where request_id = $1', [a.id])
+    expect(tasks.rows).toHaveLength(2)
+    const hist = await db.query<{ to_status: string }>(
+      `select to_status from public.status_history where entity_type = 'quote' and entity_id = $1 order by created_at, to_status`,
+      [a.id],
+    )
+    expect(hist.rows.map((h) => h.to_status)).toContain('aprovado')
+    await expect(confirm(cotador, a.id)).rejects.toThrow(/Cotado/)
+
+    await db.query(
+      `update public.quote_options set sale_price = sale_price + 1
+       where item_id = (select id from public.quote_items where request_id = $1 and position = 0)`,
+      [b.id],
+    )
+    await expect(confirm(cotador, b.id)).rejects.toThrow(/envie a cotação ao cliente/)
+    await expect(confirm(cotador, r.id)).rejects.toThrow(/não é uma recompra/)
+  })
+})

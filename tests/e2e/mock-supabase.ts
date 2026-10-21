@@ -189,6 +189,8 @@ export async function mockSupabase(page: Page, opts: { userId?: string; override
         purchase_board: fx.purchases,
         mark_request_paid: {},
         my_quote_requests: fx.myRequests,
+        create_rebuy: { code: 'COT-000131', token: 'tok131' },
+        confirm_rebuy: { status: 'aprovado' },
         can: true,
       }
       return reply(route, rpc[fn] ?? null)
