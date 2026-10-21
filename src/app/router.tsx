@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Spinner } from '@/components/ui/controls'
 import { useAuth } from '@/features/auth/auth'
-import { NotFound } from '@/pages/not-found'
+import { NotFound, RouteError } from '@/pages/not-found'
 
 const Landing = lazy(() => import('@/pages/public/landing'))
 const Cotar = lazy(() => import('@/pages/public/cotar'))
@@ -71,6 +71,7 @@ function RequireAdmin() {
 export const router = createBrowserRouter([
   {
     element: <Lazy />,
+    errorElement: <RouteError />,
     children: [
       { path: '/', element: <Landing /> },
       { path: '/cotar', element: <Cotar /> },

@@ -12,10 +12,10 @@ export interface MyRequest {
   quote_token: string | null
   payment_pending: boolean
   items: { name: string; quantity: number; unit: string }[]
-  /** Código do pedido original, quando este é uma recompra. */
-  rebuy_of_code: string | null
+  /** Código do pedido original, quando este é uma recompra. Opcional: falta se o banco ainda não tem a migração da recompra. */
+  rebuy_of_code?: string | null
   /** Produtos aprovados que podem ser comprados de novo (só em cotações aprovadas). */
-  rebuy_items: RebuyItem[]
+  rebuy_items?: RebuyItem[]
 }
 
 export interface RebuyItem {

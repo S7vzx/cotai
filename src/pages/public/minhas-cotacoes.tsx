@@ -109,14 +109,14 @@ function RequestRow({ r }: { r: MyRequest }) {
         </div>
         <ChevronRight className="size-5 shrink-0 text-fg-3" strokeWidth={1.75} aria-hidden />
       </Link>
-      {r.rebuy_items.length > 0 && (
+      {(r.rebuy_items ?? []).length > 0 && (
         <div className="border-t border-line px-5 py-3">
           <Button variant="secondary" size="sm" onClick={() => setRebuyOpen(true)}>
             <RotateCcw className="size-4" strokeWidth={1.75} /> Comprar de novo
           </Button>
         </div>
       )}
-      {rebuyOpen && <RebuyDialog code={r.code} items={r.rebuy_items} onClose={() => setRebuyOpen(false)} />}
+      {rebuyOpen && <RebuyDialog code={r.code} items={r.rebuy_items ?? []} onClose={() => setRebuyOpen(false)} />}
     </li>
   )
 }
