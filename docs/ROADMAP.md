@@ -81,12 +81,12 @@ Os números entre parênteses apontam para as seções de `docs/ESPECIFICACAO.md
 - [x] `README.md` atualizado com deploy (Supabase + Vercel/Netlify) e lista de secrets
 
 ## Próximas etapas (pós-entrega)
-- [ ] Configurar Supabase de produção, secrets e domínio (README → Publicar em produção)
+- [ ] Configurar Supabase de produção, secrets e domínio (README → Publicar em produção) — banco e funções prontos; faltam secrets e domínio
 - [ ] Validar e-mail (Resend) com domínio verificado
 - [ ] Escolher e validar o provedor de WhatsApp com o número do cliente
 - [ ] Validar o Pix automático em sandbox e depois em produção
 - [ ] Rodar os testes ponta a ponta contra um Supabase local real (`npx supabase start`) uma vez
 - [x] Portal do cliente: login por código em `/login`, lista em `/minhas-cotacoes`; equipe entra por `/admin`
 - [x] Hero refeito (celular em modo câmera, cartão do produto, ícone do app, notificação com ícone do WhatsApp)
-- [ ] Publicar as Edge Functions no projeto de produção (`supabase functions deploy --use-api`)
+- [x] Publicar as Edge Functions no projeto de produção (`supabase functions deploy --use-api`)
 - [ ] Configurar no Supabase: modelos de e-mail com `{{ .Token }}`, Redirect URLs, SMTP do Resend
