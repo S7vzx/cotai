@@ -1,7 +1,7 @@
 // Validação do pedido público (sem dependências: roda no Deno e no Vitest).
 
 export interface OrderInput {
-  customer: { name: string; company: string; cnpj: string | null; whatsapp: string; email: string }
+  customer: { name: string; company: string; cnpj: string; whatsapp: string; email: string }
   items: {
     name: string
     description: string | null
@@ -26,6 +26,41 @@ export function toE164(input: string): string | null {
   return d.length === 10 || d.length === 11 ? `+55${d}` : null
 }
 
+/** Dígitos verificadores de CPF (11 dígitos) ou CNPJ (14 dígitos). */
+export function isValidCpf(input: string): boolean {
+  const d = input.replace(/\D/g, '')
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false
+  const calc = (len: number) => {
+    let sum = 0
+    for (let i = 0; i < len; i++) sum += Number(d[i]) * (len + 1 - i)
+    const r = (sum * 10) % 11
+    return r === 10 ? 0 : r
+  }
+  return calc(9) === Number(d[9]) && calc(10) === Number(d[10])
+}
+
+export function isValidCnpj(input: string): boolean {
+  const d = input.replace(/\D/g, '')
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false
+  const calc = (len: number) => {
+    const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    const sum = weights.reduce((acc, w, i) => acc + Number(d[i]) * w, 0)
+    const r = sum % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return calc(12) === Number(d[12]) && calc(13) === Number(d[13])
+}
+
+export const isValidDocument = (input: string) => isValidCpf(input) || isValidCnpj(input)
+
+/** "12345678909" → "123.456.789-09"; 14 dígitos → "11.222.333/0001-81" */
+export function formatDocument(input: string): string {
+  const d = input.replace(/\D/g, '')
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  return d
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Normaliza e valida; lança Error com mensagem para o usuário. */
@@ -35,13 +70,16 @@ export function parseOrder(body: Record<string, unknown>, fieldModes: Record<str
   const email = str(c.email, 160).toLowerCase()
   const whatsapp = toE164(str(c.whatsapp, 30))
   const company = str(c.company, 160)
-  const cnpj = opt(c.cnpj, 20)
+  const doc = str(c.cnpj, 20)
 
   if (name.length < 2) throw new Error('Informe seu nome')
   if (!company) throw new Error('Informe o nome da empresa')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('E-mail inválido')
   if (!whatsapp) throw new Error('WhatsApp inválido')
-  if (fieldModes.cnpj === 'obrigatorio' && !cnpj) throw new Error('Informe o CNPJ')
+  // CPF ou CNPJ, sempre obrigatório (guardado na coluna cnpj)
+  if (!doc) throw new Error('Informe o CPF ou CNPJ')
+  if (!isValidDocument(doc)) throw new Error('CPF ou CNPJ inválido')
+  const cnpj = formatDocument(doc)
 
   const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : []
   if (rawItems.length === 0) throw new Error('Adicione pelo menos um produto')

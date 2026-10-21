@@ -15,11 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Skeleton } from "@/components/ui/controls";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
-import { CnpjInput, MoneyInput, PhoneInput } from "@/components/shared/inputs";
+import { DocumentInput, MoneyInput, PhoneInput } from "@/components/shared/inputs";
 import { compressImage, uploadPhotos } from "@/features/quotes/upload";
 import { usePublicSettings } from "@/features/settings/api";
 import { money, toE164, waLink } from "@/lib/format";
-import { isValidCnpj } from "@/lib/masks";
+import { isValidDocument } from "@/lib/masks";
 import { invoke } from "@/lib/supabase";
 import { cn, errorMessage } from "@/lib/utils";
 import type { FeeResult, FieldMode } from "@/types/domain";
@@ -154,9 +154,8 @@ export default function Cotar() {
     if (!r.success)
       for (const i of r.error.issues) e[String(i.path[0])] = i.message;
     if (!toE164(customer.whatsapp)) e.whatsapp = "WhatsApp inválido";
-    const cnpjMode = mode("cnpj");
-    if (cnpjMode === "obrigatorio" && !customer.cnpj) e.cnpj = "Informe o CNPJ";
-    if (customer.cnpj && !isValidCnpj(customer.cnpj)) e.cnpj = "CNPJ inválido";
+    if (!customer.cnpj) e.cnpj = "Informe o CPF ou CNPJ";
+    else if (!isValidDocument(customer.cnpj)) e.cnpj = "CPF ou CNPJ inválido";
     return e;
   }
 
@@ -416,24 +415,19 @@ export default function Cotar() {
                     }
                   />
                 </Field>
-                {mode("cnpj") !== "oculto" && (
-                  <Field
-                    label="CNPJ"
-                    required={mode("cnpj") === "obrigatorio"}
-                    hint={mode("cnpj") === "opcional" ? "Opcional" : undefined}
-                    error={errors.cnpj}
-                    htmlFor="cnpj"
-                  >
-                    <CnpjInput
-                      id="cnpj"
-                      value={customer.cnpj}
-                      aria-invalid={!!errors.cnpj}
-                      onValueChange={(v) =>
-                        setCustomer({ ...customer, cnpj: v })
-                      }
-                    />
-                  </Field>
-                )}
+                <Field
+                  label="CPF ou CNPJ"
+                  required
+                  error={errors.cnpj}
+                  htmlFor="cnpj"
+                >
+                  <DocumentInput
+                    id="cnpj"
+                    value={customer.cnpj}
+                    aria-invalid={!!errors.cnpj}
+                    onValueChange={(v) => setCustomer({ ...customer, cnpj: v })}
+                  />
+                </Field>
                 <Field
                   label="WhatsApp"
                   required

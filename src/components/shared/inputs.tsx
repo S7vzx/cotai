@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Input } from '@/components/ui/input'
-import { maskCnpj, maskMoney, maskPhone, moneyToInput, parseMoney } from '@/lib/masks'
+import { maskCnpj, maskDocument, maskMoney, maskPhone, moneyToInput, parseMoney } from '@/lib/masks'
 import { cn } from '@/lib/utils'
 
 type BaseProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>
@@ -65,3 +65,18 @@ export const CnpjInput = React.forwardRef<HTMLInputElement, BaseProps & { value:
   ),
 )
 CnpjInput.displayName = 'CnpjInput'
+
+/** CPF ou CNPJ: a máscara muda conforme a quantidade de dígitos. */
+export const DocumentInput = React.forwardRef<HTMLInputElement, BaseProps & { value: string; onValueChange: (value: string) => void }>(
+  ({ value, onValueChange, ...props }, ref) => (
+    <Input
+      ref={ref}
+      inputMode="numeric"
+      placeholder="CPF ou CNPJ"
+      value={value}
+      onChange={(e) => onValueChange(maskDocument(e.target.value))}
+      {...props}
+    />
+  ),
+)
+DocumentInput.displayName = 'DocumentInput'

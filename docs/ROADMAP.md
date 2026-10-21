@@ -90,3 +90,9 @@ Os números entre parênteses apontam para as seções de `docs/ESPECIFICACAO.md
 - [x] Hero refeito (celular em modo câmera, cartão do produto, ícone do app, notificação com ícone do WhatsApp)
 - [x] Publicar as Edge Functions no projeto de produção (`supabase functions deploy --use-api`)
 - [ ] Configurar no Supabase: modelos de e-mail com `{{ .Token }}`, Redirect URLs, SMTP do Resend
+
+## Fase 13 — Pedidos do cliente (20/10/2026)
+- [x] CPF ou CNPJ obrigatório no pedido (validação dos dois)
+- [ ] Estado do produto: cliente marca os estados aceitos (Novo, 99% novo, Seminovo, Usado); a equipe informa o estado de cada opção
+- [ ] Origem da opção (Brasil, fabricante na China, agente de compra) visível na proposta + textos da landing sobre China
+- [ ] Recompra: "Comprar de novo" em Minhas cotações cria pedido com itens, opção e preço anteriores; a equipe confirma o preço e segue para a compra

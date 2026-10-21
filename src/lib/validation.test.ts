@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseOrder } from '../../supabase/functions/_shared/validation'
 
 const base = {
-  customer: { name: 'Ana Souza', company: 'Loja', whatsapp: '(79) 99999-8888', email: 'ANA@Loja.com ' },
+  customer: { name: 'Ana Souza', company: 'Loja', cnpj: '529.982.247-25', whatsapp: '(79) 99999-8888', email: 'ANA@Loja.com ' },
   items: [
     {
       name: 'Cadeira',
@@ -35,8 +35,17 @@ describe('validação do pedido público (Edge Function)', () => {
     )
   })
 
+  it('exige CPF ou CNPJ válido e guarda formatado', () => {
+    const doc = (cnpj: string) => parseOrder({ ...base, customer: { ...base.customer, cnpj } }).customer.cnpj
+    expect(doc('52998224725')).toBe('529.982.247-25')
+    expect(doc('11222333000181')).toBe('11.222.333/0001-81')
+    expect(() => doc('')).toThrow('Informe o CPF ou CNPJ')
+    expect(() => doc('529.982.247-24')).toThrow('CPF ou CNPJ inválido')
+    expect(() => doc('111.111.111-11')).toThrow('CPF ou CNPJ inválido')
+    expect(() => doc('11.222.333/0001-80')).toThrow('CPF ou CNPJ inválido')
+  })
+
   it('respeita campos obrigatórios configurados no painel', () => {
-    expect(() => parseOrder(base, { cnpj: 'obrigatorio' })).toThrow('Informe o CNPJ')
     expect(() => parseOrder(base, { notes: 'obrigatorio' })).toThrow('campo obrigatório')
   })
 })

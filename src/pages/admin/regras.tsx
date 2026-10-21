@@ -21,7 +21,6 @@ const KEYS = [
 ] as const
 
 const FIELDS: { key: string; label: string; allowRequired: boolean; fallback: FieldMode }[] = [
-  { key: 'cnpj', label: 'CNPJ', allowRequired: true, fallback: 'opcional' },
   { key: 'category', label: 'Categoria do produto', allowRequired: true, fallback: 'oculto' },
   { key: 'unit', label: 'Unidade de medida', allowRequired: false, fallback: 'opcional' },
   { key: 'reference_url', label: 'Link de referência', allowRequired: true, fallback: 'opcional' },

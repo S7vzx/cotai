@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { previewFee, validateTiers } from './fee'
 import { date, money, phone, toE164, waLink } from './format'
-import { isValidCnpj, maskCnpj, maskMoney, maskPhone, moneyToInput, parseMoney } from './masks'
+import { isValidCnpj, maskCnpj, maskDocument, maskMoney, maskPhone, moneyToInput, parseMoney } from './masks'
 import { canTransition, nextStatuses } from './status'
 import { renderTemplate } from '../../supabase/functions/_shared/templates'
 
@@ -36,6 +36,12 @@ describe('masks', () => {
     expect(isValidCnpj('11.222.333/0001-81')).toBe(true)
     expect(isValidCnpj('11.222.333/0001-80')).toBe(false)
     expect(isValidCnpj('11111111111111')).toBe(false)
+  })
+
+  it('CPF ou CNPJ', () => {
+    expect(maskDocument('5299822')).toBe('529.982.2')
+    expect(maskDocument('52998224725')).toBe('529.982.247-25')
+    expect(maskDocument('112223330001819')).toBe('11.222.333/0001-81')
   })
 
   it('moeda', () => {

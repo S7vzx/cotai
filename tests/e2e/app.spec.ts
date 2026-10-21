@@ -47,6 +47,11 @@ test.describe('site público', () => {
     await page.getByLabel('WhatsApp').fill('79977776666')
     await expect(page.getByLabel('WhatsApp')).toHaveValue('(79) 97777-6666')
     await page.getByLabel('E-mail').fill('bruno@clinicavida.com.br')
+    await page.getByLabel('CPF ou CNPJ').fill('52998224724')
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await expect(page.getByText('CPF ou CNPJ inválido')).toBeVisible()
+    await page.getByLabel('CPF ou CNPJ').fill('52998224725')
+    await expect(page.getByLabel('CPF ou CNPJ')).toHaveValue('529.982.247-25')
     await page.getByRole('button', { name: 'Continuar' }).click()
 
     // etapa 2 — produto com foto

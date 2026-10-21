@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton, Switch } from '@/components/ui/controls'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/badges'
-import { CnpjInput, PhoneInput } from '@/components/shared/inputs'
+import { DocumentInput, PhoneInput } from '@/components/shared/inputs'
 import { EmptyState, ErrorState } from '@/components/shared/states'
 import { useAuth } from '@/features/auth/auth'
 import { dateTime, money, phone, toE164, waLink } from '@/lib/format'
@@ -107,8 +107,8 @@ export default function Cliente() {
             <Field label="Empresa">
               <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
             </Field>
-            <Field label="CNPJ">
-              <CnpjInput value={form.cnpj} onValueChange={(v) => setForm({ ...form, cnpj: v })} />
+            <Field label="CPF ou CNPJ">
+              <DocumentInput value={form.cnpj} onValueChange={(v) => setForm({ ...form, cnpj: v })} />
             </Field>
             <Field label="WhatsApp">
               <PhoneInput value={form.whatsapp} onValueChange={(v) => setForm({ ...form, whatsapp: v })} />
