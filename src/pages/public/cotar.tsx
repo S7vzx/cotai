@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -28,7 +29,12 @@ import { invoke } from "@/lib/supabase";
 import { cn, errorMessage } from "@/lib/utils";
 import type { FeeResult, FieldMode, ProductCondition } from "@/types/domain";
 import { PRODUCT_CONDITIONS } from "../../../supabase/functions/_shared/validation";
-import { PixBox, type PixCharge, type PixManual } from "./pix-box";
+import {
+  PixBox,
+  type PayMethod,
+  type PixCharge,
+  type PixManual,
+} from "./pix-box";
 import { PublicHeader, useDocumentTitle } from "./public-layout";
 
 interface Photo {
@@ -75,6 +81,7 @@ interface Created {
   status: string;
   fee: FeeResult;
   payment: PixCharge | null;
+  payment_error?: boolean;
   pix_manual: PixManual | null;
   tracking_url: string;
 }
@@ -105,6 +112,7 @@ export default function Cotar() {
   const [coupon, setCoupon] = React.useState("");
   const [showCoupon, setShowCoupon] = React.useState(false);
   const [accepted, setAccepted] = React.useState(false);
+  const [payMethod, setPayMethod] = React.useState<PayMethod>("pix");
   const [website, setWebsite] = React.useState(""); // honeypot
   const [errors, setErrors] = React.useState<Errors>({});
   const [fee, setFee] = React.useState<FeeResult | null>(null);
@@ -304,11 +312,12 @@ export default function Cotar() {
         items,
         coupon: coupon.trim() || null,
         accepted_terms: true,
+        payment_method: chosenMethod,
         website,
       });
       setCreated(res);
-      // Checkout hospedado (AbacatePay): vai direto para a página de pagamento
-      if (res.payment?.checkout_url) {
+      // Cartão: vai direto para a página segura de pagamento
+      if (res.payment?.checkout_url && res.status === "aguardando_pagamento") {
         setSubmitting("Abrindo o pagamento…");
         window.location.assign(res.payment.checkout_url);
         return;
@@ -338,10 +347,28 @@ export default function Cotar() {
   const payNow = (fee?.total ?? 0) > 0 && charge?.moment === "antes";
   const submitLabel =
     submitting ?? (payNow ? `Pagar ${money(fee?.total ?? 0)}` : "Enviar pedido");
-  const methods = [
-    { keys: ["pix_auto", "pix_manual"], label: "Pix", icon: QrCode },
-    { keys: ["cartao"], label: "Cartão de crédito", icon: CreditCard },
-  ].filter((m) => m.keys.some((k) => charge?.methods.includes(k)));
+  const methods = (
+    [
+      {
+        value: "pix",
+        keys: ["pix_auto", "pix_manual"],
+        label: "Pix",
+        hint: "QR Code na hora, confirmação automática",
+        icon: QrCode,
+      },
+      {
+        value: "card",
+        keys: ["cartao"],
+        label: "Cartão de crédito",
+        hint: "Em página segura de pagamento",
+        icon: CreditCard,
+      },
+    ] as const
+  ).filter((m) => m.keys.some((k) => charge?.methods.includes(k)));
+  // Se a forma marcada não estiver liberada nas configurações, vale a primeira disponível
+  const chosenMethod: PayMethod = methods.some((m) => m.value === payMethod)
+    ? payMethod
+    : (methods[0]?.value ?? "pix");
   const units = settings?.units?.length
     ? settings.units
     : [{ code: "un", label: "Unidade" }];
@@ -936,21 +963,57 @@ export default function Cotar() {
                         </div>
                       )}
                       {payNow && methods.length > 0 && (
-                        <div className="mt-4 border-t border-line pt-4">
+                        <div
+                          className="mt-4 border-t border-line pt-4"
+                          role="radiogroup"
+                          aria-label="Forma de pagamento"
+                        >
                           <p className="text-[13px] text-fg-2">
-                            Formas de pagamento
+                            Como você quer pagar?
                           </p>
-                          <ul className="mt-2 flex flex-wrap gap-2">
-                            {methods.map((m) => (
-                              <li
-                                key={m.label}
-                                className="flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-[13px] font-medium"
-                              >
-                                <m.icon className="size-4" strokeWidth={1.75} />
-                                {m.label}
-                              </li>
-                            ))}
-                          </ul>
+                          <div className="mt-2 grid grid-cols-1 gap-2">
+                            {methods.map((m) => {
+                              const selected = chosenMethod === m.value;
+                              return (
+                                <button
+                                  key={m.value}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={selected}
+                                  onClick={() => setPayMethod(m.value)}
+                                  className={cn(
+                                    "flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors",
+                                    selected
+                                      ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
+                                      : "border-line hover:bg-surface-2",
+                                  )}
+                                >
+                                  <m.icon
+                                    className="size-5 shrink-0"
+                                    strokeWidth={1.75}
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block text-[15px] font-semibold">
+                                      {m.label}
+                                    </span>
+                                    <span className="block text-[13px] text-fg-2">
+                                      {m.hint}
+                                    </span>
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                                      selected ? "border-accent" : "border-line",
+                                    )}
+                                  >
+                                    {selected && (
+                                      <span className="size-2.5 rounded-full bg-accent" />
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1064,7 +1127,7 @@ function Success({
   eta?: string;
 }) {
   const amount = Number(created.fee?.total ?? 0);
-  const needsPayment = amount > 0 && created.status === "aguardando_pagamento";
+  const awaiting = amount > 0 && created.status === "aguardando_pagamento";
   const trackingPath =
     new URL(created.tracking_url, window.location.origin).pathname +
     new URL(created.tracking_url, window.location.origin).search;
@@ -1072,38 +1135,103 @@ function Success({
     contact,
     `Olá! Acabei de enviar o pedido de cotação ${created.code}.`,
   );
+
+  // Enquanto o pagamento está pendente, consulta o pedido: o servidor confirma com o provedor
+  const { data: tracking } = useQuery({
+    queryKey: ["tracking", created.code, created.token],
+    queryFn: () =>
+      invoke<{ status: string }>("public-request", {
+        code: created.code,
+        token: created.token,
+      }),
+    enabled: awaiting,
+    refetchInterval: (q) =>
+      !q.state.data || q.state.data.status === "aguardando_pagamento"
+        ? 4000
+        : false,
+  });
+  const paid =
+    awaiting &&
+    !!tracking &&
+    !["aguardando_pagamento", "cancelado"].includes(tracking.status);
+
+  // Cobrança que falhou ao criar o pedido: o cliente tenta de novo aqui
+  const [charge, setCharge] = React.useState<PixCharge | null>(created.payment);
+  const [retrying, setRetrying] = React.useState(false);
+  async function retry() {
+    setRetrying(true);
+    try {
+      const c = await invoke<PixCharge & { manual?: boolean }>(
+        "create-pix-charge",
+        { code: created.code, token: created.token },
+      );
+      if (c.checkout_url) window.location.assign(c.checkout_url);
+      else if (!c.manual) setCharge(c);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  const title = paid
+    ? "Pagamento confirmado"
+    : awaiting
+      ? "Falta só o pagamento"
+      : "Pedido recebido";
+
   return (
     <div className="min-h-dvh bg-bg-alt">
       <PublicHeader links={false} cta={false} />
       <main className="mx-auto max-w-[560px] px-4 py-14 text-center sm:px-6">
-        <div
-          className="mx-auto flex size-16 items-center justify-center rounded-full bg-accent text-on-accent"
-          style={{ animation: "rise 500ms both" }}
-        >
-          <Check className="size-8" strokeWidth={2.5} />
-        </div>
-        <h1 className="mt-6 text-[34px] font-semibold leading-tight">
-          Pedido recebido
-        </h1>
+        {(paid || !awaiting) && (
+          <div
+            className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-accent text-on-accent"
+            style={{ animation: "rise 500ms both" }}
+          >
+            <Check className="size-8" strokeWidth={2.5} />
+          </div>
+        )}
+        <h1 className="text-[34px] font-semibold leading-tight">{title}</h1>
         <p className="mt-2 text-[19px] text-fg-2">
           Seu código é <b className="text-fg tabular">{created.code}</b>.
-          {needsPayment
-            ? " Falta só o pagamento da taxa para entrar na fila."
-            : ` Vamos responder ${eta ?? "em breve"}.`}
+          {paid
+            ? ` Sua cotação entrou na fila. Vamos responder ${eta ?? "em breve"}.`
+            : awaiting
+              ? " Assim que o pagamento cair, sua cotação entra na fila."
+              : ` Vamos responder ${eta ?? "em breve"}.`}
         </p>
 
-        {needsPayment && (
+        {awaiting && !paid && (
           <div className="mt-8 text-left">
-            <PixBox
-              amount={amount}
-              charge={created.payment}
-              manual={created.pix_manual}
-            />
+            {charge || created.pix_manual ? (
+              <PixBox
+                amount={amount}
+                charge={charge}
+                manual={created.pix_manual}
+              />
+            ) : (
+              <div className="rounded-[22px] bg-surface p-6 shadow-soft">
+                <p className="text-[17px] font-semibold">
+                  Não conseguimos gerar o pagamento agora
+                </p>
+                <p className="mt-1 text-[15px] text-fg-2">
+                  Seu pedido está salvo. Tente de novo em instantes.
+                </p>
+                <Button
+                  className="mt-4 w-full"
+                  onClick={() => void retry()}
+                  loading={retrying}
+                >
+                  Tentar de novo
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
         <div className="mt-8 flex flex-col gap-3">
-          <Button asChild>
+          <Button asChild variant={awaiting && !paid ? "secondary" : "primary"}>
             <Link to={trackingPath}>Acompanhar pedido</Link>
           </Button>
           {wa && (

@@ -64,7 +64,7 @@ npx supabase secrets set WHATSAPP_PROVIDER=zapi ZAPI_INSTANCE=... ZAPI_TOKEN=...
 # Pagamento automático (opcional): asaas | mercadopago | abacatepay
 npx supabase secrets set PAYMENT_PROVIDER=asaas PAYMENT_ENV=producao ASAAS_API_KEY=... PAYMENT_WEBHOOK_SECRET=uma-senha-longa
 # ou, com checkout da AbacatePay (Pix e cartão):
-# npx supabase secrets set PAYMENT_PROVIDER=abacatepay ABACATEPAY_API_KEY=abc_... ABACATEPAY_METHODS=PIX,CARD PAYMENT_WEBHOOK_SECRET=uma-senha-longa
+# npx supabase secrets set PAYMENT_PROVIDER=abacatepay ABACATEPAY_API_KEY=abc_... PAYMENT_WEBHOOK_SECRET=uma-senha-longa
 # Tarefa agendada
 npx supabase secrets set CRON_SECRET=outra-senha-longa
 ```
@@ -73,7 +73,7 @@ Depois, em **Ajustes → Integrações** no painel, confira se tudo aparece como
 **Webhook do Pix:**
 - **Asaas:** cadastre `https://SEU_PROJECT_REF.supabase.co/functions/v1/payment-webhook` e use o mesmo valor de `PAYMENT_WEBHOOK_SECRET` como token de autenticação.
 - **Mercado Pago:** a URL é enviada automaticamente em cada cobrança.
-- **AbacatePay:** em Webhooks, crie um com a mesma URL, o evento `checkout.completed` e, no campo **Secret**, o valor de `PAYMENT_WEBHOOK_SECRET` (a AbacatePay o envia como `?webhookSecret=`). Use a chave de Dev mode para testar e troque pela de produção depois; a URL da API é a mesma.
+- **AbacatePay:** em Webhooks, crie um com a mesma URL, os eventos `checkout.completed` e `transparent.completed` e, no campo **Secret**, o valor de `PAYMENT_WEBHOOK_SECRET` (a AbacatePay o envia como `?webhookSecret=`). Use a chave de Dev mode para testar e troque pela de produção depois; a URL da API é a mesma.
 
 ### 3. Tarefa agendada (lembretes e expiração de pedidos não pagos)
 No SQL Editor do Supabase, com as extensões `pg_cron` e `pg_net` ativadas:

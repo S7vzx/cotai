@@ -4,7 +4,11 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { money } from '@/lib/format'
 
+// Forma de pagamento escolhida pelo cliente no resumo do pedido
+export type PayMethod = 'pix' | 'card'
+
 export interface PixCharge {
+  method?: string // pix_abacatepay, cartao_abacatepay, pix_asaas...
   qr_code: string | null
   qr_code_image: string | null
   // Checkout hospedado (AbacatePay): o cliente paga numa página do provedor e volta para o acompanhamento

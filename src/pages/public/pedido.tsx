@@ -51,12 +51,22 @@ export default function Pedido() {
     queryKey: ['tracking', codigo, token],
     queryFn: () => invoke<Tracking>('public-request', { code: codigo, token }),
     enabled: !!token,
-    refetchInterval: (q) => (q.state.data && ['aguardando_pagamento', 'novo', 'em_cotacao', 'cotado'].includes(q.state.data.status) ? 20_000 : false),
+    // Pagamento pendente: consulta a cada 5 s (o servidor confirma com o provedor); depois, a cada 20 s
+    refetchInterval: (q) => {
+      const st = q.state.data?.status
+      if (st === 'aguardando_pagamento') return 5_000
+      return st && ['novo', 'em_cotacao', 'cotado'].includes(st) ? 20_000 : false
+    },
     retry: false,
   })
 
   const needsCharge = !!data?.payment && !data.payment.charge
-  const { data: charge } = useQuery({
+  const {
+    data: charge,
+    error: chargeError,
+    refetch: retryCharge,
+    isFetching: chargeLoading,
+  } = useQuery({
     queryKey: ['pix', codigo, token],
     enabled: needsCharge,
     queryFn: () => invoke<PixCharge & { manual?: boolean }>('create-pix-charge', { code: codigo, token }),
@@ -81,6 +91,8 @@ export default function Pedido() {
   const currentIdx = FLOW.findIndex((f) => f.statuses.includes(data.status))
   const cancelled = data.status === 'cancelado'
   const pixCharge = data.payment?.charge ?? (charge && !charge.manual ? charge : null)
+  // Passou por "Aguardando pagamento" e já seguiu: o pagamento foi confirmado
+  const paid = data.history.some((h) => h.status === 'aguardando_pagamento') && !['aguardando_pagamento', 'cancelado'].includes(data.status)
 
   return (
     <Shell>
@@ -96,7 +108,29 @@ export default function Pedido() {
         </Button>
       )}
 
-      {data.payment && data.status === 'aguardando_pagamento' && (
+      {paid && (
+        <div className="mt-6 flex items-start gap-3 rounded-[22px] bg-accent-soft p-5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
+            <Check className="size-4" strokeWidth={3} />
+          </span>
+          <div>
+            <p className="text-[17px] font-semibold">Pagamento confirmado</p>
+            <p className="text-[15px] text-fg-2">Sua cotação está na fila. Previsão: {data.eta_text}.</p>
+          </div>
+        </div>
+      )}
+
+      {data.payment && data.status === 'aguardando_pagamento' && chargeError && !pixCharge && (
+        <div className="mt-8 rounded-[22px] bg-surface p-6 shadow-soft">
+          <p className="text-[17px] font-semibold">Não conseguimos gerar o pagamento agora</p>
+          <p className="mt-1 text-[15px] text-fg-2">Seu pedido está salvo. Tente de novo em instantes.</p>
+          <Button className="mt-4 w-full" onClick={() => void retryCharge()} loading={chargeLoading}>
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+
+      {data.payment && data.status === 'aguardando_pagamento' && !(chargeError && !pixCharge) && (
         <div className="mt-8">
           <PixBox
             amount={data.payment.amount}

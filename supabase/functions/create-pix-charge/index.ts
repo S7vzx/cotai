@@ -1,6 +1,6 @@
-// (Re)gera a cobrança Pix de um pedido pendente, a partir da página de acompanhamento.
+// (Re)gera a cobrança de um pedido pendente (Pix ou cartão), a partir da página de acompanhamento.
 import { handler, HttpError, json } from '../_shared/http.ts'
-import { createPixCharge, paymentProvider } from '../_shared/payments.ts'
+import { chargeMatches, createPixCharge, parsePayMethod, paymentProvider, type PixCharge } from '../_shared/payments.ts'
 import { admin, SITE_URL } from '../_shared/supabase.ts'
 
 Deno.serve(
@@ -17,17 +17,25 @@ Deno.serve(
     if (q.payment_status !== 'pendente') throw new HttpError(400, 'Este pedido não tem pagamento pendente')
     if (paymentProvider() === 'none') return json({ manual: true })
 
-    // Reaproveita a cobrança existente se ainda for válida
-    const existing = q.payment_payload as { expires_at?: string } | null
-    if (existing && (!existing.expires_at || new Date(existing.expires_at) > new Date())) return json(existing)
+    // Sem forma pedida, mantém a da cobrança atual (ou Pix)
+    const existing = q.payment_payload as PixCharge | null
+    const method = body.method ? parsePayMethod(body.method) : existing?.method?.startsWith('cartao') ? 'card' : 'pix'
+
+    // Reaproveita a cobrança existente se for da mesma forma e ainda for válida
+    if (existing && chargeMatches(existing, method) && (!existing.expires_at || new Date(existing.expires_at) > new Date()))
+      return json(existing)
 
     const charge = await createPixCharge({
       requestId: q.id,
       code: q.code,
       amount: Number(q.fee_amount) - Number(q.fee_discount),
+      method,
       customer: q.customers,
       notificationUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook?token=${Deno.env.get('PAYMENT_WEBHOOK_SECRET') ?? ''}`,
       returnUrl: `${SITE_URL}/pedido/${q.code}?t=${q.public_token}`,
+    }).catch((err) => {
+      console.error('Falha ao gerar a cobrança', err)
+      throw new HttpError(502, 'Não foi possível gerar o pagamento agora. Tente de novo em instantes.')
     })
     await admin
       .from('quote_requests')

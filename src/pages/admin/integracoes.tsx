@@ -67,7 +67,7 @@ const SECRET_HELP: Record<string, string> = {
   meta: 'META_TOKEN e META_PHONE_ID',
   asaas: 'ASAAS_API_KEY e PAYMENT_WEBHOOK_SECRET',
   mercadopago: 'MERCADOPAGO_ACCESS_TOKEN e PAYMENT_WEBHOOK_SECRET',
-  abacatepay: 'ABACATEPAY_API_KEY e PAYMENT_WEBHOOK_SECRET (opcional: ABACATEPAY_METHODS=PIX,CARD,BOLETO)',
+  abacatepay: 'ABACATEPAY_API_KEY e PAYMENT_WEBHOOK_SECRET (opcional: ABACATEPAY_MAX_INSTALLMENTS=1 a 12)',
 }
 
 export default function AdminIntegracoes() {
@@ -179,7 +179,7 @@ export default function AdminIntegracoes() {
                 label="URL do webhook"
                 description={
                   draft.payment_provider === 'abacatepay'
-                    ? 'Cadastre na AbacatePay com o evento checkout.completed e, no campo Secret, o mesmo valor de PAYMENT_WEBHOOK_SECRET'
+                    ? 'Cadastre na AbacatePay com os eventos checkout.completed e transparent.completed e, no campo Secret, o mesmo valor de PAYMENT_WEBHOOK_SECRET'
                     : 'Cadastre no painel do provedor'
                 }
                 stacked

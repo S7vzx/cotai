@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { COMPRADOR_ID, tracking } from './fixtures'
+import { COMPRADOR_ID, publicSettings, tracking } from './fixtures'
 import { mockSupabase, signIn } from './mock-supabase'
 
 // Capturas de tela opcionais (SCREENSHOTS=1) para revisão visual.
@@ -19,6 +19,37 @@ async function shot(page: Page, name: string, fullPage = true) {
   await page.screenshot({ path: `screenshots/${test.info().project.name}-${name}.png`, fullPage })
 }
 
+// Pedido com cobrança: Pix automático e cartão liberados em Ajustes → Cobrança
+const payWithCard = { ...publicSettings, charge: { ...publicSettings.charge, methods: ['pix_auto', 'cartao'] } }
+const pending = { ...tracking, status: 'aguardando_pagamento', history: [{ status: 'aguardando_pagamento', at: tracking.created_at }] }
+const created = (payment: Record<string, unknown>) => ({
+  code: 'COT-000129',
+  token: 'tok129',
+  status: 'aguardando_pagamento',
+  fee: { total: 35, base: 35, discount: 0 },
+  payment,
+  payment_error: false,
+  pix_manual: null,
+  tracking_url: 'http://localhost:5173/pedido/COT-000129?t=tok129',
+})
+
+async function fillOrder(page: Page) {
+  await page.goto('/cotar')
+  await page.getByLabel('Nome completo').fill('Bruno Carvalho')
+  await page.getByLabel('Empresa').fill('Clínica Vida')
+  await page.getByLabel('WhatsApp').fill('79977776666')
+  await page.getByLabel('E-mail').fill('bruno@clinicavida.com.br')
+  await page.getByLabel('CPF ou CNPJ').fill('52998224725')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  await page.locator('input[type=file][multiple]').first().setInputFiles({ name: 'cadeira.png', mimeType: 'image/png', buffer: png })
+  await page.getByLabel('Qual é o produto?').fill('Cadeira de escritório')
+  await page.getByLabel('Quantidade').fill('2')
+  await page.locator('input[inputmode=numeric][placeholder="0,00"]').fill('16000')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await expect(page.getByRole('complementary', { name: 'Pagamento' })).toBeVisible()
+}
+
 test.describe('site público', () => {
   test('landing mostra os textos fixos e a taxa vinda das configurações', async ({ page }) => {
     await mockSupabase(page)
@@ -35,7 +66,7 @@ test.describe('site público', () => {
   })
 
   test('cliente envia um pedido completo pelo formulário', async ({ page }) => {
-    const calls = await mockSupabase(page)
+    const calls = await mockSupabase(page, { overrides: { '/functions/v1/public-request': pending } })
     await page.goto('/cotar')
     await shot(page, 'cotar-1-dados', false)
 
@@ -87,7 +118,7 @@ test.describe('site público', () => {
     await shot(page, 'cotar-3-resumo', false)
     await page.getByRole('button', { name: /^Pagar R\$/ }).click()
 
-    await expect(page.getByRole('heading', { name: 'Pedido recebido' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Falta só o pagamento' })).toBeVisible()
     await expect(page.getByText('COT-000129')).toBeVisible()
     await expect(page.getByText('Pagamento via Pix')).toBeVisible()
     await shot(page, 'cotar-4-sucesso')
@@ -104,40 +135,89 @@ test.describe('site público', () => {
     expect(sent.coupon).toBe('BEMVINDO')
   })
 
-  test('com checkout da AbacatePay, confirmar o resumo leva direto à página de pagamento', async ({ page }) => {
+  test('cartão: o cliente escolhe no resumo e vai direto à página segura de pagamento', async ({ page }) => {
     const checkoutUrl = 'https://app.abacatepay.com/pay/bill_abc123xyz'
-    await page.route('https://app.abacatepay.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<h1>Checkout AbacatePay</h1>' }))
+    await page.route('https://app.abacatepay.com/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<h1>Checkout AbacatePay</h1>' }),
+    )
+    const calls = await mockSupabase(page, {
+      overrides: {
+        '/rest/v1/rpc/get_public_settings': payWithCard,
+        '/functions/v1/create-quote-request': created({
+          provider: 'abacatepay',
+          method: 'cartao_abacatepay',
+          payment_id: 'bill_abc123xyz',
+          qr_code: null,
+          qr_code_image: null,
+          checkout_url: checkoutUrl,
+          expires_at: null,
+        }),
+      },
+    })
+    await fillOrder(page)
+
+    const methods = page.getByRole('radiogroup', { name: 'Forma de pagamento' })
+    await expect(methods.getByRole('radio', { name: /Pix/ })).toHaveAttribute('aria-checked', 'true')
+    await methods.getByRole('radio', { name: /Cartão de crédito/ }).click()
+    await expect(methods.getByRole('radio', { name: /Cartão de crédito/ })).toHaveAttribute('aria-checked', 'true')
+    await shot(page, 'cotar-3-cartao', false)
+    await page.getByRole('checkbox', { name: /termos/ }).click()
+    await page.getByRole('button', { name: /^Pagar R\$/ }).click()
+    await expect(page).toHaveURL(checkoutUrl)
+
+    const sent = calls.find((c) => c.path.includes('create-quote-request'))?.body as { payment_method: string }
+    expect(sent.payment_method).toBe('card')
+  })
+
+  test('Pix: mostra o QR Code e confirma o pagamento sozinho', async ({ page }) => {
+    let polls = 0
+    const calls = await mockSupabase(page, {
+      overrides: {
+        '/rest/v1/rpc/get_public_settings': payWithCard,
+        '/functions/v1/create-quote-request': created({
+          provider: 'abacatepay',
+          method: 'pix_abacatepay',
+          payment_id: 'pix_char_abc123',
+          qr_code: '00020126580014BR.GOV.BCB.PIX0136cotai-teste',
+          qr_code_image: null,
+          checkout_url: null,
+          expires_at: null,
+        }),
+      },
+    })
+    // As duas primeiras consultas ainda pendentes; depois o servidor confirma o pagamento
+    await page.route('**/functions/v1/public-request', (route) => {
+      polls += 1
+      const body =
+        polls <= 2 ? pending : { ...tracking, status: 'novo', history: [...pending.history, { status: 'novo', at: tracking.created_at }] }
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(body), headers: { 'access-control-allow-origin': '*' } })
+    })
+    await fillOrder(page)
+    await page.getByRole('checkbox', { name: /termos/ }).click()
+    await page.getByRole('button', { name: /^Pagar R\$/ }).click()
+
+    await expect(page.getByRole('heading', { name: 'Falta só o pagamento' })).toBeVisible()
+    await expect(page.getByText('00020126580014BR.GOV.BCB.PIX0136cotai-teste')).toBeVisible()
+    await expect(page.getByText('Chave Pix')).toHaveCount(0)
+    await shot(page, 'cotar-4-pix')
+    await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible({ timeout: 15_000 })
+    await shot(page, 'cotar-5-confirmado')
+
+    const sent = calls.find((c) => c.path.includes('create-quote-request'))?.body as { payment_method: string }
+    expect(sent.payment_method).toBe('pix')
+  })
+
+  test('acompanhamento mostra o pagamento confirmado', async ({ page }) => {
     await mockSupabase(page, {
       overrides: {
-        '/functions/v1/create-quote-request': {
-          code: 'COT-000129',
-          token: 'tok129',
-          status: 'aguardando_pagamento',
-          fee: { total: 35, base: 35, discount: 0 },
-          payment: { provider: 'abacatepay', method: 'checkout_abacatepay', payment_id: 'bill_abc123xyz', qr_code: null, qr_code_image: null, checkout_url: checkoutUrl, expires_at: null },
-          pix_manual: null,
-          tracking_url: 'http://localhost:5173/pedido/COT-000129?t=tok129',
+        '/functions/v1/public-request': {
+          ...tracking,
+          history: [{ status: 'aguardando_pagamento', at: tracking.created_at }, ...tracking.history],
         },
       },
     })
-    await page.goto('/cotar')
-    await page.getByLabel('Nome completo').fill('Bruno Carvalho')
-    await page.getByLabel('Empresa').fill('Clínica Vida')
-    await page.getByLabel('WhatsApp').fill('79977776666')
-    await page.getByLabel('E-mail').fill('bruno@clinicavida.com.br')
-    await page.getByLabel('CPF ou CNPJ').fill('52998224725')
-    await page.getByRole('button', { name: 'Continuar' }).click()
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
-    await page.locator('input[type=file][multiple]').first().setInputFiles({ name: 'cadeira.png', mimeType: 'image/png', buffer: png })
-    await page.getByLabel('Qual é o produto?').fill('Cadeira de escritório')
-    await page.getByLabel('Quantidade').fill('2')
-    await page.locator('input[inputmode=numeric][placeholder="0,00"]').fill('16000')
-    await page.getByRole('button', { name: 'Continuar' }).click()
-
-    await expect(page.getByRole('complementary', { name: 'Pagamento' })).toBeVisible()
-    await page.getByRole('checkbox').click()
-    await page.getByRole('button', { name: /^Pagar R\$/ }).click()
-    await expect(page).toHaveURL(checkoutUrl)
+    await page.goto('/pedido/COT-000125?t=tok125')
+    await expect(page.getByText('Pagamento confirmado')).toBeVisible()
   })
 
   test('acompanhamento do pedido', async ({ page }) => {

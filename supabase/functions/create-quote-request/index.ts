@@ -1,7 +1,7 @@
 // Recebe o pedido público, valida, grava (via public.create_quote_request) e notifica.
 import { clientIp, handler, HttpError, json } from '../_shared/http.ts'
 import { notify } from '../_shared/notify.ts'
-import { createPixCharge, paymentProvider } from '../_shared/payments.ts'
+import { createPixCharge, parsePayMethod, paymentProvider } from '../_shared/payments.ts'
 import { admin, getSettings, SITE_URL } from '../_shared/supabase.ts'
 import { parseOrder } from '../_shared/validation.ts'
 
@@ -27,14 +27,16 @@ Deno.serve(
     if (error) throw error
     const created = data as { id: string; code: string; public_token: string; status: string; fee: { total: number } }
 
-    // Pix automático, se houver provedor e a cobrança for antes de cotar
+    // Pagamento automático (Pix ou cartão, como o cliente escolheu no resumo), se houver provedor
     let payment: unknown = null
+    let paymentError = false
     if (Number(created.fee.total) > 0 && paymentProvider() !== 'none') {
       try {
         const charge = await createPixCharge({
           requestId: created.id,
           code: created.code,
           amount: Number(created.fee.total),
+          method: parsePayMethod(body.payment_method),
           customer: {
             name: order.customer.name,
             email: order.customer.email,
@@ -50,8 +52,9 @@ Deno.serve(
           .eq('id', created.id)
         payment = charge
       } catch (err) {
-        // Não perde o pedido: o cliente cai no Pix manual
-        console.error('Falha ao gerar Pix', err)
+        // Não perde o pedido: a página do pedido tenta gerar a cobrança de novo
+        console.error('Falha ao gerar a cobrança', err)
+        paymentError = true
       }
     }
 
@@ -67,9 +70,11 @@ Deno.serve(
       status: created.status,
       fee: created.fee,
       payment,
+      payment_error: paymentError,
       tracking_url: `${SITE_URL}/pedido/${created.code}?t=${created.public_token}`,
+      // Chave Pix manual só quando não há provedor configurado
       pix_manual:
-        Number(created.fee.total) > 0 && !payment
+        Number(created.fee.total) > 0 && paymentProvider() === 'none'
           ? {
               key: settings.pix_key,
               key_type: settings.pix_key_type,

@@ -101,5 +101,7 @@ Os números entre parênteses apontam para as seções de `docs/ESPECIFICACAO.md
 - [x] AbacatePay como terceiro provedor (`PAYMENT_PROVIDER=abacatepay`): produto + cliente + checkout hospedado (Pix e cartão; boleto opcional)
 - [x] Webhook `checkout.completed` com `webhookSecret` e conferência do status na API; forma de pagamento gravada (`pix_abacatepay`, `cartao_abacatepay`...)
 - [x] Botão "Pagar agora" no acompanhamento e na confirmação do pedido; opção AbacatePay em Ajustes → Integrações
+- [x] Escolha entre Pix (QR Code na página) e cartão (página segura) no resumo; sem Pix manual com provedor ativo
+- [x] Confirmação automática: a página consulta a AbacatePay e mostra "Pagamento confirmado"
 - [ ] Criar a conta e a chave de API, cadastrar o webhook e validar no Dev mode
 - [ ] Trocar para a chave de produção e fazer um pagamento real
