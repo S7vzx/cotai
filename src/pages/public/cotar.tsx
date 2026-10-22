@@ -2,8 +2,11 @@ import {
   ArrowLeft,
   Camera,
   Check,
+  CreditCard,
   ImagePlus,
+  Lock,
   Plus,
+  QrCode,
   Trash2,
   X,
 } from "lucide-react";
@@ -304,6 +307,12 @@ export default function Cotar() {
         website,
       });
       setCreated(res);
+      // Checkout hospedado (AbacatePay): vai direto para a página de pagamento
+      if (res.payment?.checkout_url) {
+        setSubmitting("Abrindo o pagamento…");
+        window.location.assign(res.payment.checkout_url);
+        return;
+      }
       window.scrollTo({ top: 0 });
     } catch (err) {
       toast.error(errorMessage(err));
@@ -326,6 +335,13 @@ export default function Cotar() {
     0,
   );
   const charge = settings?.charge;
+  const payNow = (fee?.total ?? 0) > 0 && charge?.moment === "antes";
+  const submitLabel =
+    submitting ?? (payNow ? `Pagar ${money(fee?.total ?? 0)}` : "Enviar pedido");
+  const methods = [
+    { keys: ["pix_auto", "pix_manual"], label: "Pix", icon: QrCode },
+    { keys: ["cartao"], label: "Cartão de crédito", icon: CreditCard },
+  ].filter((m) => m.keys.some((k) => charge?.methods.includes(k)));
   const units = settings?.units?.length
     ? settings.units
     : [{ code: "un", label: "Unidade" }];
@@ -333,7 +349,12 @@ export default function Cotar() {
   return (
     <div className="min-h-dvh bg-bg-alt">
       <PublicHeader links={false} cta={false} />
-      <main className="mx-auto max-w-[640px] px-4 pb-32 pt-8 sm:px-6">
+      <main
+        className={cn(
+          "mx-auto px-4 pb-32 pt-8 sm:px-6",
+          step === 2 ? "max-w-[1040px]" : "max-w-[640px]",
+        )}
+      >
         <Link
           to="/"
           className="mb-4 inline-flex items-center gap-1 text-[15px] text-accent-text"
@@ -774,160 +795,219 @@ export default function Cotar() {
             )}
 
             {step === 2 && (
-              <div className="space-y-4">
-                <div className="rounded-[22px] bg-surface p-5 sm:p-6">
-                  <h2 className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
-                    Seus dados
-                  </h2>
-                  <p className="mt-2 font-semibold">{customer.name}</p>
-                  <p className="text-[15px] text-fg-2">
-                    {customer.company} · {customer.cnpj} · {customer.whatsapp} ·{" "}
-                    {customer.email}
-                  </p>
-                  <button
-                    className="mt-2 text-[15px] text-accent-text"
-                    onClick={() => setStep(0)}
-                  >
-                    Alterar
-                  </button>
-                </div>
-
-                <div className="rounded-[22px] bg-surface p-5 sm:p-6">
-                  <h2 className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
-                    Produtos
-                  </h2>
-                  <ul className="mt-3 divide-y divide-line">
-                    {products.map((p) => (
-                      <li key={p.key} className="flex items-center gap-3 py-3">
-                        <img
-                          src={p.photos[0]?.preview}
-                          alt=""
-                          className="size-12 rounded-lg object-cover"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{p.name}</p>
-                          <p className="text-[13px] text-fg-2 tabular">
-                            {p.quantity} {p.unit} × {money(p.target_price)} ·{" "}
-                            {p.accepted_conditions
-                              .map((c) => PRODUCT_CONDITIONS[c])
-                              .join(", ")}
-                          </p>
-                        </div>
-                        <span className="font-semibold tabular">
-                          {money(p.quantity * p.target_price)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-2 flex justify-between border-t border-line pt-3">
-                    <span className="text-fg-2">Total-alvo</span>
-                    <span className="font-semibold tabular">
-                      {money(totalTarget)}
-                    </span>
-                  </div>
-                  <button
-                    className="mt-2 text-[15px] text-accent-text"
-                    onClick={() => setStep(1)}
-                  >
-                    Alterar
-                  </button>
-                </div>
-
-                {charge?.enabled && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+                {/* resumo do pedido */}
+                <div className="min-w-0 space-y-4">
                   <div className="rounded-[22px] bg-surface p-5 sm:p-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[17px]">Taxa de cotação</span>
-                      {feeLoading && !fee ? (
-                        // Prévia local enquanto o valor oficial (calculate-fee) não chega
-                        <span className="text-[21px] font-semibold tabular text-fg-3">
-                          {money(previewFee(charge, products.length))}
-                        </span>
-                      ) : (
-                        <span className="text-[21px] font-semibold tabular">
-                          {money(fee?.total ?? 0)}
-                        </span>
-                      )}
-                    </div>
-                    {fee && fee.discount > 0 && (
-                      <p className="mt-1 text-right text-[13px] text-accent-text tabular">
-                        {money(fee.base)} − {money(fee.discount)} de desconto
-                      </p>
-                    )}
-                    {charge.deduct_on_purchase && (fee?.total ?? 0) > 0 && (
-                      <p className="mt-2 text-[13px] text-fg-2">
-                        Se você aprovar a compra, a taxa é abatida do total.
-                      </p>
-                    )}
-                    {charge.moment === "depois" && (fee?.total ?? 0) > 0 && (
-                      <p className="mt-2 text-[13px] text-fg-2">
-                        Você paga a taxa para liberar a cotação quando ela
-                        estiver pronta.
-                      </p>
-                    )}
-                    {charge.has_coupons && (
-                      <div className="mt-4">
-                        {showCoupon ? (
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Código do cupom"
-                              value={coupon}
-                              onChange={(e) =>
-                                setCoupon(e.target.value.toUpperCase())
-                              }
-                              className="uppercase"
-                            />
-                            <Button
-                              variant="secondary"
-                              onClick={() => void refreshFee()}
-                              loading={feeLoading}
-                            >
-                              Aplicar
-                            </Button>
+                    <h2 className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
+                      Seus dados
+                    </h2>
+                    <p className="mt-2 font-semibold">{customer.name}</p>
+                    <p className="break-words text-[15px] text-fg-2">
+                      {customer.company} · {customer.cnpj} · {customer.whatsapp}{" "}
+                      · {customer.email}
+                    </p>
+                    <button
+                      className="mt-2 text-[15px] text-accent-text"
+                      onClick={() => setStep(0)}
+                    >
+                      Alterar
+                    </button>
+                  </div>
+
+                  <div className="rounded-[22px] bg-surface p-5 sm:p-6">
+                    <h2 className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
+                      Produtos
+                    </h2>
+                    <ul className="mt-3 divide-y divide-line">
+                      {products.map((p) => (
+                        <li
+                          key={p.key}
+                          className="flex items-center gap-3 py-3"
+                        >
+                          <img
+                            src={p.photos[0]?.preview}
+                            alt=""
+                            className="size-12 shrink-0 rounded-lg object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{p.name}</p>
+                            <p className="text-[13px] text-fg-2 tabular">
+                              {p.quantity} {p.unit} × {money(p.target_price)} ·{" "}
+                              {p.accepted_conditions
+                                .map((c) => PRODUCT_CONDITIONS[c])
+                                .join(", ")}
+                            </p>
                           </div>
+                          <span className="font-semibold tabular">
+                            {money(p.quantity * p.target_price)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-2 flex justify-between border-t border-line pt-3">
+                      <span className="text-fg-2">Total-alvo</span>
+                      <span className="font-semibold tabular">
+                        {money(totalTarget)}
+                      </span>
+                    </div>
+                    <button
+                      className="mt-2 text-[15px] text-accent-text"
+                      onClick={() => setStep(1)}
+                    >
+                      Alterar
+                    </button>
+                  </div>
+                </div>
+
+                {/* pagamento */}
+                <aside
+                  className="min-w-0 rounded-[22px] bg-surface p-5 sm:p-6 lg:sticky lg:top-6"
+                  aria-label="Pagamento"
+                >
+                  <h2 className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
+                    {charge?.enabled ? "Pagamento" : "Confirmação"}
+                  </h2>
+
+                  {charge?.enabled && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[17px]">Taxa de cotação</span>
+                        {feeLoading && !fee ? (
+                          // Prévia local enquanto o valor oficial (calculate-fee) não chega
+                          <span className="text-[21px] font-semibold tabular text-fg-3">
+                            {money(previewFee(charge, products.length))}
+                          </span>
                         ) : (
-                          <button
-                            className="text-[15px] text-accent-text"
-                            onClick={() => setShowCoupon(true)}
-                          >
-                            Tenho um cupom
-                          </button>
-                        )}
-                        {fee?.coupon_error && (
-                          <p className="mt-2 text-[13px] text-[var(--status-red)]">
-                            {fee.coupon_error}
-                          </p>
+                          <span className="text-[21px] font-semibold tabular">
+                            {money(fee?.total ?? 0)}
+                          </span>
                         )}
                       </div>
-                    )}
-                  </div>
-                )}
+                      {fee && fee.discount > 0 && (
+                        <p className="mt-1 text-right text-[13px] text-accent-text tabular">
+                          {money(fee.base)} − {money(fee.discount)} de desconto
+                        </p>
+                      )}
+                      {charge.deduct_on_purchase && (fee?.total ?? 0) > 0 && (
+                        <p className="mt-2 text-[13px] text-fg-2">
+                          Se você aprovar a compra, a taxa é abatida do total.
+                        </p>
+                      )}
+                      {charge.moment === "depois" && (fee?.total ?? 0) > 0 && (
+                        <p className="mt-2 text-[13px] text-fg-2">
+                          Você paga a taxa para liberar a cotação quando ela
+                          estiver pronta.
+                        </p>
+                      )}
+                      {charge.has_coupons && (
+                        <div className="mt-4">
+                          {showCoupon ? (
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Código do cupom"
+                                value={coupon}
+                                onChange={(e) =>
+                                  setCoupon(e.target.value.toUpperCase())
+                                }
+                                className="uppercase"
+                              />
+                              <Button
+                                variant="secondary"
+                                onClick={() => void refreshFee()}
+                                loading={feeLoading}
+                              >
+                                Aplicar
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              className="text-[15px] text-accent-text"
+                              onClick={() => setShowCoupon(true)}
+                            >
+                              Tenho um cupom
+                            </button>
+                          )}
+                          {fee?.coupon_error && (
+                            <p className="mt-2 text-[13px] text-[var(--status-red)]">
+                              {fee.coupon_error}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {payNow && methods.length > 0 && (
+                        <div className="mt-4 border-t border-line pt-4">
+                          <p className="text-[13px] text-fg-2">
+                            Formas de pagamento
+                          </p>
+                          <ul className="mt-2 flex flex-wrap gap-2">
+                            {methods.map((m) => (
+                              <li
+                                key={m.label}
+                                className="flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-[13px] font-medium"
+                              >
+                                <m.icon className="size-4" strokeWidth={1.75} />
+                                {m.label}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                <label className="flex items-start gap-3 rounded-[22px] bg-surface p-5">
-                  <Checkbox
-                    checked={accepted}
-                    onCheckedChange={(v) => {
-                      setAccepted(v === true);
-                      setErrors({});
-                    }}
-                    className="mt-0.5"
-                  />
-                  <span className="text-[15px]">
-                    Li e concordo com os{" "}
-                    <button
-                      type="button"
-                      className="text-accent-text underline underline-offset-2"
-                      onClick={() => setTermsOpen(true)}
+                  <label className="mt-4 flex items-start gap-3 border-t border-line pt-4">
+                    <Checkbox
+                      checked={accepted}
+                      onCheckedChange={(v) => {
+                        setAccepted(v === true);
+                        setErrors({});
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span className="text-[15px]">
+                      Li e concordo com os{" "}
+                      <button
+                        type="button"
+                        className="text-accent-text underline underline-offset-2"
+                        onClick={() => setTermsOpen(true)}
+                      >
+                        termos
+                      </button>
+                      .
+                      {errors.terms && (
+                        <span className="block text-[13px] text-[var(--status-red)]">
+                          {errors.terms}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+
+                  {/* no celular o botão fica na barra fixa */}
+                  <div className="mt-5 hidden flex-col gap-2 lg:flex">
+                    <Button
+                      onClick={submit}
+                      loading={!!submitting}
+                      disabled={feeLoading}
                     >
-                      termos
-                    </button>
-                    .
-                    {errors.terms && (
-                      <span className="block text-[13px] text-[var(--status-red)]">
-                        {errors.terms}
-                      </span>
-                    )}
-                  </span>
-                </label>
+                      {submitLabel}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setStep(1)}
+                      disabled={!!submitting}
+                    >
+                      Voltar
+                    </Button>
+                  </div>
+                  {payNow && (
+                    <p className="mt-3 flex items-start gap-1.5 text-[13px] text-fg-3">
+                      <Lock className="mt-0.5 size-3.5 shrink-0" />
+                      Ao confirmar, você vai para a página segura de pagamento
+                      e volta para acompanhar o pedido.
+                    </p>
+                  )}
+                </aside>
               </div>
             )}
           </div>
@@ -935,7 +1015,7 @@ export default function Cotar() {
       </main>
 
       {/* barra de ação fixa */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-chrome backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+      <div className={cn("fixed inset-x-0 bottom-0 z-30 border-t border-line bg-chrome backdrop-blur-xl pb-[env(safe-area-inset-bottom)]", step === 2 && "lg:hidden")}>
         <div className="mx-auto flex max-w-[640px] items-center gap-3 px-4 py-3 sm:px-6">
           {step > 0 && (
             <Button
@@ -957,10 +1037,7 @@ export default function Cotar() {
               loading={!!submitting}
               disabled={feeLoading}
             >
-              {submitting ??
-                ((fee?.total ?? 0) > 0 && charge?.moment === "antes"
-                  ? "Confirmar e pagar"
-                  : "Enviar pedido")}
+              {submitLabel}
             </Button>
           )}
         </div>
