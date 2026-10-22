@@ -18,6 +18,7 @@ import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { DocumentInput, MoneyInput, PhoneInput } from "@/components/shared/inputs";
 import { compressImage, uploadPhotos } from "@/features/quotes/upload";
 import { usePublicSettings } from "@/features/settings/api";
+import { previewFee } from "@/lib/fee";
 import { money, toE164, waLink } from "@/lib/format";
 import { isValidDocument } from "@/lib/masks";
 import { invoke } from "@/lib/supabase";
@@ -143,10 +144,12 @@ export default function Cotar() {
     }
   }, [settings?.charge.enabled, products.length, coupon]);
 
+  // Calcula já ao abrir o formulário (e a cada produto a mais), não só no resumo:
+  // a Edge Function demora na primeira chamada e o valor fica pronto antes de o cliente chegar lá
   React.useEffect(() => {
-    if (step === 2) void refreshFee();
+    void refreshFee();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, products.length]);
+  }, [settings?.charge.enabled, products.length]);
 
   // ----- validação por etapa
   function validateCustomer(): Errors {
@@ -834,8 +837,11 @@ export default function Cotar() {
                   <div className="rounded-[22px] bg-surface p-5 sm:p-6">
                     <div className="flex items-center justify-between">
                       <span className="text-[17px]">Taxa de cotação</span>
-                      {feeLoading ? (
-                        <Skeleton className="h-6 w-20" />
+                      {feeLoading && !fee ? (
+                        // Prévia local enquanto o valor oficial (calculate-fee) não chega
+                        <span className="text-[21px] font-semibold tabular text-fg-3">
+                          {money(previewFee(charge, products.length))}
+                        </span>
                       ) : (
                         <span className="text-[21px] font-semibold tabular">
                           {money(fee?.total ?? 0)}
