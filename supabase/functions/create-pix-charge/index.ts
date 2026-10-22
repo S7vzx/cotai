@@ -1,7 +1,7 @@
 // (Re)gera a cobrança Pix de um pedido pendente, a partir da página de acompanhamento.
 import { handler, HttpError, json } from '../_shared/http.ts'
 import { createPixCharge, paymentProvider } from '../_shared/payments.ts'
-import { admin } from '../_shared/supabase.ts'
+import { admin, SITE_URL } from '../_shared/supabase.ts'
 
 Deno.serve(
   handler(async (_req, body) => {
@@ -27,10 +27,11 @@ Deno.serve(
       amount: Number(q.fee_amount) - Number(q.fee_discount),
       customer: q.customers,
       notificationUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook?token=${Deno.env.get('PAYMENT_WEBHOOK_SECRET') ?? ''}`,
+      returnUrl: `${SITE_URL}/pedido/${q.code}?t=${q.public_token}`,
     })
     await admin
       .from('quote_requests')
-      .update({ payment_id: charge.payment_id, payment_method: `pix_${charge.provider}`, payment_payload: charge })
+      .update({ payment_id: charge.payment_id, payment_method: charge.method, payment_payload: charge })
       .eq('id', q.id)
     return json(charge)
   }),

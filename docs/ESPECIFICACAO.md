@@ -410,7 +410,7 @@ Papéis padrão: `admin` (acesso total, inclusive Administração), `cotador` (t
 #### 10.9.7 Integrações (`/painel/admin/integracoes`)
 - **E-mail (Resend):** remetente (nome e e-mail), status, botão "Enviar e-mail de teste"
 - **WhatsApp:** provedor (Z-API / Evolution / Meta / Nenhum — usar link wa.me), status da conexão, botão "Enviar mensagem de teste" para um número informado
-- **Pagamento:** provedor (Asaas / Mercado Pago / Nenhum — Pix manual), ambiente (sandbox / produção), status, URL do webhook para copiar
+- **Pagamento:** provedor (Asaas / Mercado Pago / AbacatePay / Nenhum — Pix manual), ambiente (sandbox / produção), status, URL do webhook para copiar
 - **As chaves secretas (tokens, API keys) NÃO ficam no banco nem no front-end:** ficam nos Secrets do Supabase. Esta tela apenas mostra se cada secret está configurado (✓ / ✗, via Edge Function `integration-status`) e explica qual secret cadastrar
 
 #### 10.9.8 Equipe (`/painel/admin/equipe`)
@@ -552,7 +552,7 @@ audit_log
 ## 12. EDGE FUNCTIONS (Supabase)
 
 1. **`create-quote-request`** (pública): recebe os dados do formulário, cria ou reaproveita o cliente, cria o pedido, os itens e as fotos (o upload é feito antes, via signed upload URL, por uma função auxiliar `get-upload-url`), gera o `code` e o `public_token`, define o status inicial conforme `charge_enabled` e dispara as notificações de "pedido recebido". Inclui proteção básica contra spam (honeypot e rate limit por IP/telefone).
-2. **`create-pix-charge`**: gera a cobrança Pix via **Asaas** ou **Mercado Pago** (provedor escolhido pela variável `PAYMENT_PROVIDER`) e retorna o QR code e o copia-e-cola. Se não houver chave configurada, retorna o modo manual.
+2. **`create-pix-charge`**: gera a cobrança Pix via **Asaas** ou **Mercado Pago** (provedor escolhido pela variável `PAYMENT_PROVIDER`) e retorna o QR code e o copia-e-cola. Com a **AbacatePay**, cria um checkout hospedado (Pix, cartão e boleto) e retorna a `checkout_url`; o cliente paga lá e volta para a página de acompanhamento. Se não houver chave configurada, retorna o modo manual.
 3. **`payment-webhook`**: recebe a confirmação do provedor, marca o pedido como pago, muda o status para `novo` e notifica a equipe.
 4. **`send-quote`** (autenticada): monta a mensagem a partir dos templates e envia por e-mail e/ou WhatsApp, grava em `notifications_log` e atualiza o status.
 5. **`public-quote`** (pública): retorna os dados da cotação pelo token (somente campos públicos) e processa aprovar/recusar, criando as `purchase_tasks` na aprovação.

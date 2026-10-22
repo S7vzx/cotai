@@ -163,7 +163,7 @@ export default function AdminCobranca() {
 
               <Group
                 title="Formas de pagamento"
-                footer="O Pix automático usa o provedor configurado em Integrações. Sem provedor, o cliente vê a chave Pix e a equipe confirma o pagamento no painel."
+                footer="O pagamento automático usa o provedor configurado em Integrações (com a AbacatePay, o cliente paga numa página de checkout). Sem provedor, o cliente vê a chave Pix e a equipe confirma o pagamento no painel."
               >
                 {[
                   { k: 'pix_auto', label: 'Pix automático (QR Code)' },

@@ -96,3 +96,10 @@ Os números entre parênteses apontam para as seções de `docs/ESPECIFICACAO.md
 - [x] Estado do produto: cliente marca os estados aceitos (Novo, 99% novo, Seminovo, Usado); a equipe informa o estado de cada opção
 - [x] Origem da opção (Brasil, fabricante na China, agente de compra) visível na proposta + textos da landing sobre China
 - [x] Recompra: "Comprar de novo" em Minhas cotações cria pedido com itens, opção e preço anteriores; a equipe confirma o preço e segue para a compra
+
+## Fase 14 — Checkout AbacatePay (22/10/2026)
+- [x] AbacatePay como terceiro provedor (`PAYMENT_PROVIDER=abacatepay`): produto + cliente + checkout hospedado (Pix e cartão; boleto opcional)
+- [x] Webhook `checkout.completed` com `webhookSecret` e conferência do status na API; forma de pagamento gravada (`pix_abacatepay`, `cartao_abacatepay`...)
+- [x] Botão "Pagar agora" no acompanhamento e na confirmação do pedido; opção AbacatePay em Ajustes → Integrações
+- [ ] Criar a conta e a chave de API, cadastrar o webhook e validar no Dev mode
+- [ ] Trocar para a chave de produção e fazer um pagamento real

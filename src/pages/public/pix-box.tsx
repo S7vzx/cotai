@@ -1,11 +1,14 @@
 import { Check, Copy } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { money } from '@/lib/format'
 
 export interface PixCharge {
-  qr_code: string
+  qr_code: string | null
   qr_code_image: string | null
+  // Checkout hospedado (AbacatePay): o cliente paga numa página do provedor e volta para o acompanhamento
+  checkout_url?: string | null
   expires_at?: string | null
 }
 
@@ -45,11 +48,21 @@ function CopyField({ value, label }: { value: string; label: string }) {
 }
 
 export function PixBox({ amount, charge, manual }: { amount: number; charge?: PixCharge | null; manual?: PixManual | null }) {
+  const checkoutUrl = charge?.checkout_url
   return (
     <div className="rounded-[22px] bg-surface p-6 shadow-soft">
-      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">Pagamento via Pix</p>
+      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">{checkoutUrl ? 'Pagamento da taxa' : 'Pagamento via Pix'}</p>
       <p className="mt-1 text-[34px] font-semibold tabular">{money(amount)}</p>
-      {charge ? (
+      {checkoutUrl ? (
+        <div className="mt-4 space-y-3">
+          <Button asChild className="w-full">
+            <a href={checkoutUrl}>Pagar agora</a>
+          </Button>
+          <p className="text-[13px] text-fg-3">
+            Você vai para a página segura de pagamento e volta para cá no final. A confirmação é automática.
+          </p>
+        </div>
+      ) : charge?.qr_code ? (
         <div className="mt-4 space-y-4">
           {charge.qr_code_image && (
             <img

@@ -234,6 +234,13 @@ describe('segurança (RLS)', () => {
     expect((await upd(admin)).rows).toHaveLength(1)
   })
 
+  it('aceita AbacatePay como provedor de pagamento e recusa provedores desconhecidos', async () => {
+    await setSettings(`payment_provider = 'abacatepay'`)
+    const r = await db.query<{ payment_provider: string }>('select payment_provider from public.settings')
+    expect(r.rows[0].payment_provider).toBe('abacatepay')
+    await expect(setSettings(`payment_provider = 'stripe'`)).rejects.toThrow(/settings_payment_provider_check/)
+  })
+
   it('usuário inativo perde o acesso', async () => {
     await db.query('update public.profiles set active = false where id = $1', [cotador])
     await createRequest()

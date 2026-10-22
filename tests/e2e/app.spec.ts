@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { COMPRADOR_ID } from './fixtures'
+import { COMPRADOR_ID, tracking } from './fixtures'
 import { mockSupabase, signIn } from './mock-supabase'
 
 // Capturas de tela opcionais (SCREENSHOTS=1) para revisão visual.
@@ -110,6 +110,39 @@ test.describe('site público', () => {
     await expect(page.getByRole('heading', { name: /COT-000125/ })).toBeVisible()
     await expect(page.getByText('Em cotação')).toBeVisible()
     await shot(page, 'pedido')
+  })
+
+  test('acompanhamento leva ao checkout da AbacatePay quando o pagamento está pendente', async ({ page }) => {
+    const checkoutUrl = 'https://app.abacatepay.com/pay/bill_abc123xyz'
+    await mockSupabase(page, {
+      overrides: {
+        '/functions/v1/public-request': {
+          ...tracking,
+          status: 'aguardando_pagamento',
+          payment: {
+            amount: 35,
+            due_at: null,
+            pix_key: null,
+            pix_key_type: null,
+            pix_receiver_name: null,
+            pix_instructions: null,
+            moment: 'antes',
+            charge: {
+              provider: 'abacatepay',
+              method: 'checkout_abacatepay',
+              payment_id: 'bill_abc123xyz',
+              qr_code: null,
+              qr_code_image: null,
+              checkout_url: checkoutUrl,
+              expires_at: null,
+            },
+          },
+        },
+      },
+    })
+    await page.goto('/pedido/COT-000125?t=tok125')
+    await expect(page.getByText('Pagamento da taxa')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Pagar agora' })).toHaveAttribute('href', checkoutUrl)
   })
 
   test('cliente entra com código e vê as próprias cotações', async ({ page }) => {

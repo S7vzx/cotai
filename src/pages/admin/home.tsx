@@ -81,7 +81,7 @@ export default function AdminHome() {
           <StatusDot ok={integError ? false : integ?.whatsapp.configured} />
         </Row>
         <Row
-          label="Pix automático"
+          label="Pagamento automático"
           description={integ?.payment.provider === 'none' ? 'Pix manual (chave)' : integ?.payment.provider}
           to="/painel/admin/integracoes"
         >

@@ -67,6 +67,7 @@ const SECRET_HELP: Record<string, string> = {
   meta: 'META_TOKEN e META_PHONE_ID',
   asaas: 'ASAAS_API_KEY e PAYMENT_WEBHOOK_SECRET',
   mercadopago: 'MERCADOPAGO_ACCESS_TOKEN e PAYMENT_WEBHOOK_SECRET',
+  abacatepay: 'ABACATEPAY_API_KEY e PAYMENT_WEBHOOK_SECRET (opcional: ABACATEPAY_METHODS=PIX,CARD,BOLETO)',
 }
 
 export default function AdminIntegracoes() {
@@ -139,7 +140,7 @@ export default function AdminIntegracoes() {
           </Group>
 
           <Group
-            title="Pix automático"
+            title="Pagamento automático"
             footer={
               draft.payment_provider === 'none'
                 ? 'Sem provedor, o cliente vê a chave Pix e a equipe confirma o pagamento no painel.'
@@ -155,6 +156,7 @@ export default function AdminIntegracoes() {
                   { value: 'none', label: 'Nenhum (Pix manual)' },
                   { value: 'asaas', label: 'Asaas' },
                   { value: 'mercadopago', label: 'Mercado Pago' },
+                  { value: 'abacatepay', label: 'AbacatePay' },
                 ]}
               />
             </Row>
@@ -173,7 +175,15 @@ export default function AdminIntegracoes() {
               <Secrets secrets={status?.payment.secrets} />
             </Row>
             {status?.payment.webhook_url && (
-              <Row label="URL do webhook" description="Cadastre no painel do provedor" stacked>
+              <Row
+                label="URL do webhook"
+                description={
+                  draft.payment_provider === 'abacatepay'
+                    ? 'Cadastre na AbacatePay com o evento checkout.completed e, no campo Secret, o mesmo valor de PAYMENT_WEBHOOK_SECRET'
+                    : 'Cadastre no painel do provedor'
+                }
+                stacked
+              >
                 <div className="flex items-center gap-2 rounded-xl bg-surface-2 p-1.5 pl-4">
                   <code className="min-w-0 flex-1 truncate text-[13px]">{status.payment.webhook_url}</code>
                   <Button

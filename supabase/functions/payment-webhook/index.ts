@@ -1,4 +1,4 @@
-// Recebe a confirmação do Asaas ou do Mercado Pago e libera o pedido.
+// Recebe a confirmação do Asaas, do Mercado Pago ou da AbacatePay e libera o pedido.
 import { handler, HttpError, json } from '../_shared/http.ts'
 import { notify } from '../_shared/notify.ts'
 import { parseWebhook } from '../_shared/payments.ts'
@@ -20,7 +20,7 @@ Deno.serve(
 
     const { error } = await admin.rpc('mark_request_paid', {
       p_request_id: parsed.requestId,
-      p_method: 'pix',
+      p_method: parsed.method,
       p_payment_id: parsed.paymentId,
     })
     if (error) throw error

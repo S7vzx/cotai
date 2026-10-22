@@ -320,7 +320,7 @@ export interface Settings {
   email_from_name: string | null
   email_from_address: string | null
   whatsapp_provider: 'none' | 'zapi' | 'evolution' | 'meta'
-  payment_provider: 'none' | 'asaas' | 'mercadopago'
+  payment_provider: 'none' | 'asaas' | 'mercadopago' | 'abacatepay'
   payment_env: 'sandbox' | 'producao'
   updated_at: string
 }

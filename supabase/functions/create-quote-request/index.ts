@@ -42,10 +42,11 @@ Deno.serve(
             cnpj: order.customer.cnpj,
           },
           notificationUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook?token=${Deno.env.get('PAYMENT_WEBHOOK_SECRET') ?? ''}`,
+          returnUrl: `${SITE_URL}/pedido/${created.code}?t=${created.public_token}`,
         })
         await admin
           .from('quote_requests')
-          .update({ payment_id: charge.payment_id, payment_method: `pix_${charge.provider}`, payment_payload: charge })
+          .update({ payment_id: charge.payment_id, payment_method: charge.method, payment_payload: charge })
           .eq('id', created.id)
         payment = charge
       } catch (err) {
