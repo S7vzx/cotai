@@ -39,7 +39,7 @@ async function mockCardForm(page: Page) {
     route.fulfill({
       contentType: 'application/javascript',
       body: `window.AbacatePay = { create: () => ({
-        mount: (el) => { el.innerHTML = '<label>Número do cartão <input value=\"4242 4242 4242 4242\"></label>'; return Promise.resolve() },
+        mount: (el) => { el.innerHTML = '<label>Número do cartão <input value="4242 4242 4242 4242"></label>'; return Promise.resolve() },
         tokenize: (payer) => { window.__payer = payer; return Promise.resolve({ token: 'ctok_e2e', brand: 'VISA', lastFour: '4242' }) },
         destroy: () => {},
       }) }`,
