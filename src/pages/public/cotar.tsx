@@ -29,6 +29,7 @@ import { invoke } from "@/lib/supabase";
 import { cn, errorMessage } from "@/lib/utils";
 import type { FeeResult, FieldMode, ProductCondition } from "@/types/domain";
 import { PRODUCT_CONDITIONS } from "../../../supabase/functions/_shared/validation";
+import { ABACATEPAY_PUBLIC_KEY, CardForm, type CardFormHandle } from "./card-form";
 import {
   PixBox,
   type PayMethod,
@@ -81,7 +82,7 @@ interface Created {
   status: string;
   fee: FeeResult;
   payment: PixCharge | null;
-  payment_error?: boolean;
+  payment_error?: string | null;
   pix_manual: PixManual | null;
   tracking_url: string;
 }
@@ -113,6 +114,7 @@ export default function Cotar() {
   const [showCoupon, setShowCoupon] = React.useState(false);
   const [accepted, setAccepted] = React.useState(false);
   const [payMethod, setPayMethod] = React.useState<PayMethod>("pix");
+  const cardRef = React.useRef<CardFormHandle>(null);
   const [website, setWebsite] = React.useState(""); // honeypot
   const [errors, setErrors] = React.useState<Errors>({});
   const [fee, setFee] = React.useState<FeeResult | null>(null);
@@ -306,22 +308,23 @@ export default function Cotar() {
           photos,
         };
       });
-      setSubmitting("Registrando pedido…");
+      // Cartão: o token vale 60 s, então só é gerado depois das fotos, logo antes de registrar
+      let cardToken: string | undefined;
+      if (payNow && chosenMethod === "card") {
+        setSubmitting("Validando o cartão…");
+        cardToken = await cardRef.current!.tokenize(payer);
+      }
+      setSubmitting(payNow ? "Processando o pagamento…" : "Registrando pedido…");
       const res = await invoke<Created>("create-quote-request", {
         customer: { ...customer, whatsapp: toE164(customer.whatsapp) },
         items,
         coupon: coupon.trim() || null,
         accepted_terms: true,
-        payment_method: chosenMethod,
+        payment_method: payNow ? chosenMethod : null,
+        card_token: cardToken,
         website,
       });
       setCreated(res);
-      // Cartão: vai direto para a página segura de pagamento
-      if (res.payment?.checkout_url && res.status === "aguardando_pagamento") {
-        setSubmitting("Abrindo o pagamento…");
-        window.location.assign(res.payment.checkout_url);
-        return;
-      }
       window.scrollTo({ top: 0 });
     } catch (err) {
       toast.error(errorMessage(err));
@@ -330,10 +333,19 @@ export default function Cotar() {
     }
   }
 
+  // Dados do pagador para o cartão (o abacatepay.js e a cobrança exigem os quatro)
+  const payer = {
+    name: customer.name,
+    email: customer.email,
+    taxId: customer.cnpj,
+    cellphone: toE164(customer.whatsapp) ?? customer.whatsapp,
+  };
+
   if (created)
     return (
       <Success
         created={created}
+        payer={payer}
         contact={settings?.contact_whatsapp}
         eta={settings?.eta_text}
       />
@@ -360,11 +372,16 @@ export default function Cotar() {
         value: "card",
         keys: ["cartao"],
         label: "Cartão de crédito",
-        hint: "Em página segura de pagamento",
+        hint: "Digite os dados aqui mesmo, com segurança",
         icon: CreditCard,
       },
     ] as const
-  ).filter((m) => m.keys.some((k) => charge?.methods.includes(k)));
+  ).filter(
+    (m) =>
+      m.keys.some((k) => charge?.methods.includes(k)) &&
+      // cartão só com a chave pública da AbacatePay configurada
+      (m.value !== "card" || !!ABACATEPAY_PUBLIC_KEY),
+  );
   // Se a forma marcada não estiver liberada nas configurações, vale a primeira disponível
   const chosenMethod: PayMethod = methods.some((m) => m.value === payMethod)
     ? payMethod
@@ -1014,6 +1031,11 @@ export default function Cotar() {
                               );
                             })}
                           </div>
+                          {chosenMethod === "card" && fee && fee.total > 0 && (
+                            <div className="mt-4">
+                              <CardForm ref={cardRef} amount={fee.total} />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1066,8 +1088,9 @@ export default function Cotar() {
                   {payNow && (
                     <p className="mt-3 flex items-start gap-1.5 text-[13px] text-fg-3">
                       <Lock className="mt-0.5 size-3.5 shrink-0" />
-                      Ao confirmar, você vai para a página segura de pagamento
-                      e volta para acompanhar o pedido.
+                      {chosenMethod === "card"
+                        ? "Pagamento processado pela AbacatePay. Os dados do cartão não passam pelos nossos servidores."
+                        : "Ao confirmar, aparece o QR Code do Pix. A confirmação é automática."}
                     </p>
                   )}
                 </aside>
@@ -1117,12 +1140,17 @@ export default function Cotar() {
   );
 }
 
+const paidStatus = (c: PixCharge | null | undefined) =>
+  c?.status === "APPROVED" || c?.status === "PAID";
+
 function Success({
   created,
+  payer,
   contact,
   eta,
 }: {
   created: Created;
+  payer: { name: string; email: string; taxId: string; cellphone: string };
   contact?: string | null;
   eta?: string;
 }) {
@@ -1136,6 +1164,15 @@ function Success({
     `Olá! Acabei de enviar o pedido de cotação ${created.code}.`,
   );
 
+  const [charge, setCharge] = React.useState<PixCharge | null>(
+    created.payment,
+  );
+  const [failure, setFailure] = React.useState(created.payment_error ?? null);
+  const [paidHere, setPaidHere] = React.useState(false); // cartão aprovado nesta tela
+  const [retryCard, setRetryCard] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const cardRef = React.useRef<CardFormHandle>(null);
+
   // Enquanto o pagamento está pendente, consulta o pedido: o servidor confirma com o provedor
   const { data: tracking } = useQuery({
     queryKey: ["tracking", created.code, created.token],
@@ -1144,40 +1181,47 @@ function Success({
         code: created.code,
         token: created.token,
       }),
-    enabled: awaiting,
+    enabled: awaiting && !!charge && !paidHere,
     refetchInterval: (q) =>
       !q.state.data || q.state.data.status === "aguardando_pagamento"
         ? 4000
         : false,
   });
   const paid =
-    awaiting &&
-    !!tracking &&
-    !["aguardando_pagamento", "cancelado"].includes(tracking.status);
+    (amount > 0 && paidStatus(created.payment)) ||
+    paidHere ||
+    (awaiting &&
+      !!tracking &&
+      !["aguardando_pagamento", "cancelado"].includes(tracking.status));
 
-  // Cobrança que falhou ao criar o pedido: o cliente tenta de novo aqui
-  const [charge, setCharge] = React.useState<PixCharge | null>(created.payment);
-  const [retrying, setRetrying] = React.useState(false);
-  async function retry() {
-    setRetrying(true);
+  // Nova tentativa depois de uma recusa: Pix ou outro cartão
+  async function pay(method: PayMethod) {
+    setBusy(method);
     try {
+      const card_token =
+        method === "card" ? await cardRef.current!.tokenize(payer) : undefined;
       const c = await invoke<PixCharge & { manual?: boolean }>(
         "create-pix-charge",
-        { code: created.code, token: created.token },
+        { code: created.code, token: created.token, method, card_token },
       );
-      if (c.checkout_url) window.location.assign(c.checkout_url);
-      else if (!c.manual) setCharge(c);
+      if (c.manual) return;
+      setCharge(c);
+      setFailure(null);
+      setRetryCard(false);
+      if (paidStatus(c)) setPaidHere(true);
     } catch (err) {
-      toast.error(errorMessage(err));
+      setFailure(errorMessage(err));
     } finally {
-      setRetrying(false);
+      setBusy(null);
     }
   }
 
   const title = paid
     ? "Pagamento confirmado"
     : awaiting
-      ? "Falta só o pagamento"
+      ? failure
+        ? "Pagamento não concluído"
+        : "Falta só o pagamento"
       : "Pedido recebido";
 
   return (
@@ -1198,34 +1242,62 @@ function Success({
           {paid
             ? ` Sua cotação entrou na fila. Vamos responder ${eta ?? "em breve"}.`
             : awaiting
-              ? " Assim que o pagamento cair, sua cotação entra na fila."
+              ? " Seu pedido está salvo. Assim que o pagamento for confirmado, ele entra na fila."
               : ` Vamos responder ${eta ?? "em breve"}.`}
         </p>
 
         {awaiting && !paid && (
           <div className="mt-8 text-left">
-            {charge || created.pix_manual ? (
+            {failure || (!charge && !created.pix_manual) ? (
+              <div className="rounded-[22px] bg-surface p-6 shadow-soft">
+                <p className="text-[17px] font-semibold">
+                  {failure ?? "Não conseguimos gerar o pagamento agora"}
+                </p>
+                <p className="mt-1 text-[15px] text-fg-2">
+                  Escolha como quer tentar de novo.
+                </p>
+                {retryCard ? (
+                  <div className="mt-4 space-y-3">
+                    <CardForm ref={cardRef} amount={amount} />
+                    <Button
+                      className="w-full"
+                      onClick={() => void pay("card")}
+                      loading={busy === "card"}
+                      disabled={!!busy}
+                    >
+                      Pagar {money(amount)}
+                    </Button>
+                  </div>
+                ) : (
+                  ABACATEPAY_PUBLIC_KEY && (
+                    <Button
+                      className="mt-4 w-full"
+                      variant="secondary"
+                      onClick={() => setRetryCard(true)}
+                      disabled={!!busy}
+                    >
+                      <CreditCard className="size-5" strokeWidth={1.75} />
+                      Tentar com outro cartão
+                    </Button>
+                  )
+                )}
+                <Button
+                  className="mt-3 w-full"
+                  variant={retryCard ? "secondary" : "primary"}
+                  onClick={() => void pay("pix")}
+                  loading={busy === "pix"}
+                  disabled={!!busy}
+                >
+                  <QrCode className="size-5" strokeWidth={1.75} />
+                  Pagar com Pix
+                </Button>
+              </div>
+            ) : (
               <PixBox
                 amount={amount}
                 charge={charge}
                 manual={created.pix_manual}
               />
-            ) : (
-              <div className="rounded-[22px] bg-surface p-6 shadow-soft">
-                <p className="text-[17px] font-semibold">
-                  Não conseguimos gerar o pagamento agora
-                </p>
-                <p className="mt-1 text-[15px] text-fg-2">
-                  Seu pedido está salvo. Tente de novo em instantes.
-                </p>
-                <Button
-                  className="mt-4 w-full"
-                  onClick={() => void retry()}
-                  loading={retrying}
-                >
-                  Tentar de novo
-                </Button>
-              </div>
             )}
           </div>
         )}

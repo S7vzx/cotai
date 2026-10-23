@@ -1,6 +1,7 @@
 // (Re)gera a cobrança de um pedido pendente (Pix ou cartão), a partir da página de acompanhamento.
 import { handler, HttpError, json } from '../_shared/http.ts'
-import { chargeMatches, createPixCharge, parsePayMethod, paymentProvider, type PixCharge } from '../_shared/payments.ts'
+import { confirmPaid } from '../_shared/paid.ts'
+import { chargeMatches, createPixCharge, parsePayMethod, PaymentDeclined, paymentProvider, type PixCharge } from '../_shared/payments.ts'
 import { admin, SITE_URL } from '../_shared/supabase.ts'
 
 Deno.serve(
@@ -30,17 +31,21 @@ Deno.serve(
       code: q.code,
       amount: Number(q.fee_amount) - Number(q.fee_discount),
       method,
+      cardToken: typeof body.card_token === 'string' ? body.card_token : undefined,
       customer: q.customers,
       notificationUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook?token=${Deno.env.get('PAYMENT_WEBHOOK_SECRET') ?? ''}`,
       returnUrl: `${SITE_URL}/pedido/${q.code}?t=${q.public_token}`,
     }).catch((err) => {
       console.error('Falha ao gerar a cobrança', err)
+      if (err instanceof PaymentDeclined) throw new HttpError(402, err.message)
       throw new HttpError(502, 'Não foi possível gerar o pagamento agora. Tente de novo em instantes.')
     })
     await admin
       .from('quote_requests')
       .update({ payment_id: charge.payment_id, payment_method: charge.method, payment_payload: charge })
       .eq('id', q.id)
+    // Cartão aprovado na hora: confirma e o pedido entra na fila
+    if (charge.status === 'APPROVED' || charge.status === 'PAID') await confirmPaid(q.id, charge)
     return json(charge)
   }),
 )

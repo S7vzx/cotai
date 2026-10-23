@@ -67,7 +67,7 @@ const SECRET_HELP: Record<string, string> = {
   meta: 'META_TOKEN e META_PHONE_ID',
   asaas: 'ASAAS_API_KEY e PAYMENT_WEBHOOK_SECRET',
   mercadopago: 'MERCADOPAGO_ACCESS_TOKEN e PAYMENT_WEBHOOK_SECRET',
-  abacatepay: 'ABACATEPAY_API_KEY e PAYMENT_WEBHOOK_SECRET (opcional: ABACATEPAY_MAX_INSTALLMENTS=1 a 12)',
+  abacatepay: 'ABACATEPAY_API_KEY e PAYMENT_WEBHOOK_SECRET. Para o cartão, a chave pública vai em VITE_ABACATEPAY_PUBLIC_KEY (front-end)',
 }
 
 export default function AdminIntegracoes() {

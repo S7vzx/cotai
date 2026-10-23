@@ -20,8 +20,10 @@ export interface PixCharge {
   payment_id: string
   qr_code: string | null // copia e cola (Pix direto)
   qr_code_image: string | null // base64 PNG
-  checkout_url: string | null // página de pagamento hospedada (AbacatePay)
+  checkout_url: string | null // página de pagamento hospedada (não usada desde o cartão no próprio site)
   expires_at: string | null
+  status?: string // cartão: APPROVED na hora ou PENDING enquanto o banco responde
+  card?: { brand: string; last_four: string }
 }
 
 // Forma escolhida pelo cliente no resumo do pedido. Asaas e Mercado Pago só fazem Pix.
@@ -31,17 +33,21 @@ export function parsePayMethod(v: unknown): PayMethod {
   return v === 'card' ? 'card' : 'pix'
 }
 
-/** A cobrança já gerada serve para a forma pedida? (cartão = checkout hospedado) */
+/** A cobrança já gerada serve para a forma pedida? Cartão nunca é reaproveitado: cada tentativa usa um token novo. */
 export function chargeMatches(charge: { method?: string } | null | undefined, method: PayMethod): boolean {
-  if (!charge?.method) return method === 'pix'
-  return method === 'card' ? !charge.method.startsWith('pix') : charge.method.startsWith('pix')
+  if (method === 'card') return false
+  return !charge?.method || charge.method.startsWith('pix')
 }
+
+/** Recusa ou indisponibilidade que o cliente precisa ler (cartão recusado, cartão não liberado...). */
+export class PaymentDeclined extends Error {}
 
 interface ChargeInput {
   requestId: string
   code: string
   amount: number
   method: PayMethod
+  cardToken?: string // token ctok_ do formulário de cartão (abacatepay.js), vale 60 s
   customer: { name: string; email: string | null; whatsapp: string | null; cnpj: string | null }
   notificationUrl: string
   returnUrl: string // página de acompanhamento do pedido
@@ -129,9 +135,8 @@ async function mercadoPago(input: ChargeInput): Promise<PixCharge> {
   }
 }
 
-// AbacatePay (API v2). Pix: QR Code direto (checkout transparente), mostrado na nossa página.
-// Cartão: checkout hospedado, que cobra produtos e não um valor avulso, então cada pedido ganha
-// um produto com o valor da taxa. A chave de Dev mode e a de produção usam a mesma URL.
+// AbacatePay (API v2), checkout transparente: o Pix vira QR Code na nossa página e o cartão é
+// digitado no próprio site (abacatepay.js). A chave de Dev mode e a de produção usam a mesma URL.
 const ABACATE = 'https://api.abacatepay.com/v2'
 
 async function abacateCall<T>(path: string, init?: RequestInit): Promise<T> {
@@ -189,70 +194,61 @@ async function abacatePix(input: ChargeInput): Promise<PixCharge> {
   }
 }
 
+// Cartão no próprio site: o abacatepay.js gera o token ctok_ no navegador e aqui ele vira a cobrança
 async function abacateCard(input: ChargeInput): Promise<PixCharge> {
-  const cents = Math.round(input.amount * 100)
-  // O externalId inclui o valor: se a taxa mudar, nasce outro produto em vez de reaproveitar o preço antigo
-  const externalId = `taxa-${input.requestId}-${cents}`
-  const product = await abacateCall<{ id: string }>('/products/create', {
-    method: 'POST',
-    body: JSON.stringify({ externalId, name: `Taxa de cotação ${input.code}`, price: cents, currency: 'BRL' }),
-  }).catch((err) =>
-    // Produto já criado numa tentativa anterior; se nem assim achar, vale o erro original
-    abacateCall<{ id: string }>(`/products/get?externalId=${encodeURIComponent(externalId)}`).catch(() => {
-      throw err
-    }),
-  )
-
-  // O cliente é opcional no checkout, mas pré-preenche os dados na página de pagamento
-  let customerId: string | undefined
-  if (input.customer.email) {
-    customerId = await abacateCall<{ id: string }>('/customers/create', {
-      method: 'POST',
-      body: JSON.stringify(abacateCustomer(input.customer)),
-    })
-      .then((c) => c.id)
-      .catch((err) => {
-        console.error('AbacatePay: cliente não criado', err)
-        return undefined
-      })
-  }
-
-  const installments = Math.min(12, Math.max(1, Number(env('ABACATEPAY_MAX_INSTALLMENTS')) || 1))
-  const checkout = await abacateCall<{ id: string; url: string }>('/checkouts/create', {
+  if (!input.cardToken) throw new PaymentDeclined('Preencha os dados do cartão para pagar.')
+  const c = input.customer
+  const card = await abacateCall<{ id: string; status: string; brand: string; lastFour: string }>('/transparents/create', {
     method: 'POST',
     body: JSON.stringify({
-      items: [{ id: product.id, quantity: 1 }],
-      methods: ['CARD'],
-      card: { maxInstallments: installments },
-      customerId,
-      externalId: input.requestId,
-      returnUrl: input.returnUrl,
-      completionUrl: input.returnUrl,
-      metadata: { code: input.code },
+      method: 'CARD',
+      data: {
+        amount: Math.round(input.amount * 100),
+        token: input.cardToken,
+        installmentCount: 1,
+        customer: { name: c.name, email: c.email, taxId: c.cnpj, cellphone: c.whatsapp },
+        metadata: { requestId: input.requestId, code: input.code },
+      },
     }),
+  }).catch((err: Error) => {
+    console.error('AbacatePay: cartão não cobrado', err)
+    // A recusa volta como erro na criação; o texto da AbacatePay já é para o cliente
+    const msg = err.message.replace(/^AbacatePay [^:]*: /, '')
+    if (/not available for this store/i.test(msg)) throw new PaymentDeclined('Pagamento com cartão indisponível no momento. Pague com Pix.')
+    if (/invalid or expired card token/i.test(msg)) throw new PaymentDeclined('Os dados do cartão expiraram. Confira e tente de novo.')
+    throw new PaymentDeclined(/[à-ú]/i.test(msg) ? msg : 'Cartão recusado. Confira os dados ou use outro cartão.')
   })
+  if (card.status === 'FAILED') throw new PaymentDeclined('Cartão recusado. Confira os dados ou use outro cartão.')
   return {
     provider: 'abacatepay',
     method: 'cartao_abacatepay',
-    payment_id: checkout.id,
+    payment_id: card.id,
     qr_code: null,
     qr_code_image: null,
-    checkout_url: checkout.url,
+    checkout_url: null,
     expires_at: null,
+    status: card.status,
+    card: { brand: card.brand, last_four: card.lastFour },
   }
 }
 
 /**
- * Consulta na AbacatePay se a cobrança já foi paga. Usado pela página do pedido enquanto o
- * pagamento está pendente, para confirmar na hora mesmo se o webhook atrasar ou não chegar.
+ * Consulta na AbacatePay se a cobrança já foi paga. Usado na criação (cartão aprovado na hora) e pela
+ * página do pedido enquanto o pagamento está pendente, para confirmar mesmo se o webhook atrasar.
  * Para Asaas e Mercado Pago, a confirmação continua só pelo webhook.
  */
-export async function isChargePaid(charge: { provider?: string; payment_id?: string } | null | undefined): Promise<boolean> {
+export async function isChargePaid(
+  charge: { provider?: string; payment_id?: string; status?: string } | null | undefined,
+): Promise<boolean> {
   if (!charge?.payment_id || charge.provider !== 'abacatepay' || paymentProvider() !== 'abacatepay') return false
   const id = encodeURIComponent(charge.payment_id)
   if (charge.payment_id.startsWith('pix_')) {
     const p = await abacateCall<{ status: string }>(`/transparents/check?id=${id}`)
     return p.status === 'PAID'
+  }
+  if (charge.payment_id.startsWith('card_')) {
+    const c = await abacateCall<{ status: string }>(`/transparents/get?id=${id}`)
+    return ['APPROVED', 'PAID'].includes(c.status)
   }
   const c = await abacateCall<{ status: string }>(`/checkouts/get?id=${id}`)
   return c.status === 'PAID'
@@ -294,7 +290,7 @@ export async function parseWebhook(
     // O secret cadastrado no webhook da AbacatePay chega como ?webhookSecret=. Sem secret, recusa tudo.
     if (!secret || new URL(req.url).searchParams.get('webhookSecret') !== secret) throw new Error('Webhook não autorizado')
 
-    // Cartão (checkout hospedado)
+    // Checkout hospedado (pedidos antigos, de antes do cartão no próprio site)
     if (body.event === 'checkout.completed') {
       const data = body.data as { checkout?: { id?: string } } | undefined
       if (!data?.checkout?.id) return null
@@ -306,14 +302,15 @@ export async function parseWebhook(
       return { requestId: c.externalId, paymentId: c.id, method: 'cartao_abacatepay' }
     }
 
-    // Pix (QR Code na nossa página)
+    // Pix (QR Code) e cartão no próprio site
     if (body.event === 'transparent.completed') {
       const data = body.data as { transparent?: { id?: string; metadata?: { requestId?: string } } } | undefined
       const t = data?.transparent
-      if (!t?.id?.startsWith('pix_') || !t.metadata?.requestId) return null
-      const p = await abacateCall<{ status: string }>(`/transparents/check?id=${encodeURIComponent(t.id)}`)
-      if (p.status !== 'PAID') return null
-      return { requestId: t.metadata.requestId, paymentId: t.id, method: 'pix_abacatepay' }
+      if (!t?.id || !t.metadata?.requestId) return null
+      const pix = t.id.startsWith('pix_')
+      if (!pix && !t.id.startsWith('card_')) return null
+      if (!(await isChargePaid({ provider: 'abacatepay', payment_id: t.id }))) return null
+      return { requestId: t.metadata.requestId, paymentId: t.id, method: pix ? 'pix_abacatepay' : 'cartao_abacatepay' }
     }
   }
 

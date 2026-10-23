@@ -29,6 +29,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: 'http://localhost:54321',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
       VITE_SITE_URL: `http://localhost:${port}`,
+      VITE_ABACATEPAY_PUBLIC_KEY: 'pk_test_e2e',
     },
   },
 })

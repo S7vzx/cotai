@@ -1,7 +1,8 @@
 // Recebe o pedido público, valida, grava (via public.create_quote_request) e notifica.
 import { clientIp, handler, HttpError, json } from '../_shared/http.ts'
 import { notify } from '../_shared/notify.ts'
-import { createPixCharge, parsePayMethod, paymentProvider } from '../_shared/payments.ts'
+import { confirmPaid } from '../_shared/paid.ts'
+import { createPixCharge, parsePayMethod, PaymentDeclined, paymentProvider } from '../_shared/payments.ts'
 import { admin, getSettings, SITE_URL } from '../_shared/supabase.ts'
 import { parseOrder } from '../_shared/validation.ts'
 
@@ -29,7 +30,8 @@ Deno.serve(
 
     // Pagamento automático (Pix ou cartão, como o cliente escolheu no resumo), se houver provedor
     let payment: unknown = null
-    let paymentError = false
+    let paymentError: string | null = null
+    let status = created.status
     if (Number(created.fee.total) > 0 && paymentProvider() !== 'none') {
       try {
         const charge = await createPixCharge({
@@ -37,6 +39,7 @@ Deno.serve(
           code: created.code,
           amount: Number(created.fee.total),
           method: parsePayMethod(body.payment_method),
+          cardToken: typeof body.card_token === 'string' ? body.card_token : undefined,
           customer: {
             name: order.customer.name,
             email: order.customer.email,
@@ -51,10 +54,15 @@ Deno.serve(
           .update({ payment_id: charge.payment_id, payment_method: charge.method, payment_payload: charge })
           .eq('id', created.id)
         payment = charge
+        // Cartão aprovado na hora: o pedido já entra na fila de cotação
+        if (charge.status === 'APPROVED' || charge.status === 'PAID') {
+          await confirmPaid(created.id, charge)
+          status = 'novo'
+        }
       } catch (err) {
-        // Não perde o pedido: a página do pedido tenta gerar a cobrança de novo
+        // Não perde o pedido: o cliente tenta de novo (outro cartão ou Pix) na tela seguinte
         console.error('Falha ao gerar a cobrança', err)
-        paymentError = true
+        paymentError = err instanceof PaymentDeclined ? err.message : 'Não foi possível gerar o pagamento agora.'
       }
     }
 
@@ -67,7 +75,7 @@ Deno.serve(
     return json({
       code: created.code,
       token: created.public_token,
-      status: created.status,
+      status,
       fee: created.fee,
       payment,
       payment_error: paymentError,

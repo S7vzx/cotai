@@ -1,6 +1,6 @@
 // Página de acompanhamento: dados do pedido por código + token.
 import { handler, HttpError, json } from '../_shared/http.ts'
-import { notify } from '../_shared/notify.ts'
+import { confirmPaid } from '../_shared/paid.ts'
 import { isChargePaid, paymentProvider, type PixCharge } from '../_shared/payments.ts'
 import { admin, signPaths } from '../_shared/supabase.ts'
 
@@ -36,13 +36,7 @@ Deno.serve(
     const charge = data.payment?.charge
     if (data.status === 'aguardando_pagamento' && charge && (await isChargePaid(charge).catch(() => false))) {
       const { data: q } = await admin.from('quote_requests').select('id').eq('code', code.toUpperCase()).eq('public_token', token).single()
-      const { error } = await admin.rpc('mark_request_paid', {
-        p_request_id: q!.id,
-        p_method: charge.method,
-        p_payment_id: charge.payment_id,
-      })
-      if (error) throw error
-      await notify(q!.id, 'pagamento_confirmado').catch((e) => console.error(e))
+      await confirmPaid(q!.id, charge)
       data = await load(code, token)
     }
 

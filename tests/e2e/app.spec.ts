@@ -22,7 +22,7 @@ async function shot(page: Page, name: string, fullPage = true) {
 // Pedido com cobrança: Pix automático e cartão liberados em Ajustes → Cobrança
 const payWithCard = { ...publicSettings, charge: { ...publicSettings.charge, methods: ['pix_auto', 'cartao'] } }
 const pending = { ...tracking, status: 'aguardando_pagamento', history: [{ status: 'aguardando_pagamento', at: tracking.created_at }] }
-const created = (payment: Record<string, unknown>) => ({
+const created = (payment: Record<string, unknown> | null) => ({
   code: 'COT-000129',
   token: 'tok129',
   status: 'aguardando_pagamento',
@@ -32,6 +32,20 @@ const created = (payment: Record<string, unknown>) => ({
   pix_manual: null,
   tracking_url: 'http://localhost:5173/pedido/COT-000129?t=tok129',
 })
+
+// Formulário de cartão da AbacatePay simulado: um campo e um token fixo
+async function mockCardForm(page: Page) {
+  await page.route('https://abacatepay.com/abacatepay.js', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: `window.AbacatePay = { create: () => ({
+        mount: (el) => { el.innerHTML = '<label>Número do cartão <input value=\"4242 4242 4242 4242\"></label>'; return Promise.resolve() },
+        tokenize: (payer) => { window.__payer = payer; return Promise.resolve({ token: 'ctok_e2e', brand: 'VISA', lastFour: '4242' }) },
+        destroy: () => {},
+      }) }`,
+    }),
+  )
+}
 
 async function fillOrder(page: Page) {
   await page.goto('/cotar')
@@ -135,23 +149,25 @@ test.describe('site público', () => {
     expect(sent.coupon).toBe('BEMVINDO')
   })
 
-  test('cartão: o cliente escolhe no resumo e vai direto à página segura de pagamento', async ({ page }) => {
-    const checkoutUrl = 'https://app.abacatepay.com/pay/bill_abc123xyz'
-    await page.route('https://app.abacatepay.com/**', (route) =>
-      route.fulfill({ contentType: 'text/html', body: '<h1>Checkout AbacatePay</h1>' }),
-    )
+  test('cartão: o cliente digita o cartão no resumo e o pagamento é confirmado na hora', async ({ page }) => {
+    await mockCardForm(page)
     const calls = await mockSupabase(page, {
       overrides: {
         '/rest/v1/rpc/get_public_settings': payWithCard,
-        '/functions/v1/create-quote-request': created({
-          provider: 'abacatepay',
-          method: 'cartao_abacatepay',
-          payment_id: 'bill_abc123xyz',
-          qr_code: null,
-          qr_code_image: null,
-          checkout_url: checkoutUrl,
-          expires_at: null,
-        }),
+        '/functions/v1/create-quote-request': {
+          ...created({
+            provider: 'abacatepay',
+            method: 'cartao_abacatepay',
+            payment_id: 'card_abc123',
+            qr_code: null,
+            qr_code_image: null,
+            checkout_url: null,
+            expires_at: null,
+            status: 'APPROVED',
+            card: { brand: 'VISA', last_four: '4242' },
+          }),
+          status: 'novo',
+        },
       },
     })
     await fillOrder(page)
@@ -159,14 +175,61 @@ test.describe('site público', () => {
     const methods = page.getByRole('radiogroup', { name: 'Forma de pagamento' })
     await expect(methods.getByRole('radio', { name: /Pix/ })).toHaveAttribute('aria-checked', 'true')
     await methods.getByRole('radio', { name: /Cartão de crédito/ }).click()
-    await expect(methods.getByRole('radio', { name: /Cartão de crédito/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByLabel('Número do cartão')).toBeVisible()
     await shot(page, 'cotar-3-cartao', false)
     await page.getByRole('checkbox', { name: /termos/ }).click()
     await page.getByRole('button', { name: /^Pagar R\$/ }).click()
-    await expect(page).toHaveURL(checkoutUrl)
 
-    const sent = calls.find((c) => c.path.includes('create-quote-request'))?.body as { payment_method: string }
+    await expect(page.getByRole('heading', { name: 'Pagamento confirmado' })).toBeVisible()
+    await shot(page, 'cotar-4-cartao-aprovado')
+    const sent = calls.find((c) => c.path.includes('create-quote-request'))?.body as { payment_method: string; card_token: string }
     expect(sent.payment_method).toBe('card')
+    expect(sent.card_token).toBe('ctok_e2e')
+    // o pagador vai completo para o abacatepay.js (a cobrança exige os quatro campos)
+    expect(await page.evaluate(() => (window as unknown as { __payer: unknown }).__payer)).toEqual({
+      name: 'Bruno Carvalho',
+      email: 'bruno@clinicavida.com.br',
+      taxId: '529.982.247-25',
+      cellphone: '+5579977776666',
+    })
+  })
+
+  test('cartão recusado: o pedido fica salvo e o cliente paga com Pix', async ({ page }) => {
+    await mockCardForm(page)
+    await mockSupabase(page, {
+      overrides: {
+        '/rest/v1/rpc/get_public_settings': payWithCard,
+        '/functions/v1/create-quote-request': {
+          ...created(null),
+          payment_error: 'Cartão recusado. Confira os dados ou use outro cartão.',
+        },
+        '/functions/v1/create-pix-charge': {
+          provider: 'abacatepay',
+          method: 'pix_abacatepay',
+          payment_id: 'pix_char_abc123',
+          qr_code: '00020126580014BR.GOV.BCB.PIX0136cotai-teste',
+          qr_code_image: null,
+          checkout_url: null,
+          expires_at: null,
+        },
+        '/functions/v1/public-request': pending,
+      },
+    })
+    await fillOrder(page)
+    await page
+      .getByRole('radiogroup', { name: 'Forma de pagamento' })
+      .getByRole('radio', { name: /Cartão de crédito/ })
+      .click()
+    await expect(page.getByLabel('Número do cartão')).toBeVisible()
+    await page.getByRole('checkbox', { name: /termos/ }).click()
+    await page.getByRole('button', { name: /^Pagar R\$/ }).click()
+
+    await expect(page.getByRole('heading', { name: 'Pagamento não concluído' })).toBeVisible()
+    await expect(page.getByText('Cartão recusado. Confira os dados ou use outro cartão.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Tentar com outro cartão' })).toBeVisible()
+    await shot(page, 'cotar-4-cartao-recusado')
+    await page.getByRole('button', { name: 'Pagar com Pix' }).click()
+    await expect(page.getByText('00020126580014BR.GOV.BCB.PIX0136cotai-teste')).toBeVisible()
   })
 
   test('Pix: mostra o QR Code e confirma o pagamento sozinho', async ({ page }) => {

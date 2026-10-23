@@ -14,6 +14,8 @@ export interface PixCharge {
   // Checkout hospedado (AbacatePay): o cliente paga numa página do provedor e volta para o acompanhamento
   checkout_url?: string | null
   expires_at?: string | null
+  status?: string // cartão: APPROVED na hora ou PENDING enquanto o banco responde
+  card?: { brand: string; last_four: string }
 }
 
 export interface PixManual {
@@ -55,9 +57,15 @@ export function PixBox({ amount, charge, manual }: { amount: number; charge?: Pi
   const checkoutUrl = charge?.checkout_url
   return (
     <div className="rounded-[22px] bg-surface p-6 shadow-soft">
-      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">{checkoutUrl ? 'Pagamento da taxa' : 'Pagamento via Pix'}</p>
+      <p className="text-[13px] font-medium uppercase tracking-[0.04em] text-fg-2">
+        {charge?.card ? 'Pagamento com cartão' : checkoutUrl ? 'Pagamento da taxa' : 'Pagamento via Pix'}
+      </p>
       <p className="mt-1 text-[34px] font-semibold tabular">{money(amount)}</p>
-      {checkoutUrl ? (
+      {charge?.card ? (
+        <p className="mt-4 text-[15px] text-fg-2">
+          Cartão {charge.card.brand} final {charge.card.last_four} em análise pelo banco. Esta página atualiza sozinha.
+        </p>
+      ) : checkoutUrl ? (
         <div className="mt-4 space-y-3">
           <Button asChild className="w-full">
             <a href={checkoutUrl}>Pagar agora</a>
